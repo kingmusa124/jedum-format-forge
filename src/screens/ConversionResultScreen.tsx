@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useMemo, useState} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Alert, StyleSheet, Text, View} from 'react-native';
+import {Alert, Image, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {RootStackParamList} from '@app/navigation/types';
 import {Screen} from '@app/components/Screen';
@@ -15,6 +15,20 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ConversionResult'>;
 export function ConversionResultScreen({route}: Props) {
   const {theme} = useAppTheme();
   const item = useAppSelector(state => state.history.items.find(entry => entry.id === route.params.historyId));
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+
+  const leadPreview = useMemo(() => {
+    const first = item?.outputFiles[0];
+    if (!first) {
+      return null;
+    }
+
+    if (first.thumbnailUri) {
+      return first.thumbnailUri;
+    }
+
+    return first.type.startsWith('image/') ? first.uri : null;
+  }, [item]);
 
   const handleAction = async (action: () => Promise<void>) => {
     try {
@@ -40,8 +54,10 @@ export function ConversionResultScreen({route}: Props) {
   return (
     <Screen>
       <SectionCard title="Conversion result" subtitle={`${item.outputFormat.toUpperCase()} • ${item.status}`}>
-        {item.outputFiles[0]?.thumbnailUri ? (
-          <FastImage source={{uri: item.outputFiles[0].thumbnailUri}} style={styles.preview} />
+        {leadPreview ? (
+          <Pressable onPress={() => setPreviewUri(leadPreview)}>
+            <FastImage source={{uri: leadPreview}} style={styles.preview} />
+          </Pressable>
         ) : null}
         <Text style={[styles.label, {color: theme.colors.text}]}>Output files</Text>
         {item.outputFiles.map(file => (
@@ -56,13 +72,23 @@ export function ConversionResultScreen({route}: Props) {
               <Text style={[styles.fileType, {color: theme.colors.textMuted}]}>{file.type}</Text>
             </View>
             <View style={styles.actions}>
-              <PrimaryButton
-                label="Open"
-                onPress={() => {
-                  void handleAction(() => openFile(file.uri));
-                }}
-                secondary
-              />
+              {file.type.startsWith('image/') ? (
+                <PrimaryButton
+                  label="Preview"
+                  onPress={() => {
+                    setPreviewUri(file.thumbnailUri || file.uri);
+                  }}
+                  secondary
+                />
+              ) : (
+                <PrimaryButton
+                  label="Open"
+                  onPress={() => {
+                    void handleAction(() => openFile(file.uri));
+                  }}
+                  secondary
+                />
+              )}
               <PrimaryButton
                 label="Save to device"
                 onPress={() => {
@@ -80,6 +106,14 @@ export function ConversionResultScreen({route}: Props) {
           </View>
         ))}
       </SectionCard>
+      <Modal visible={Boolean(previewUri)} transparent animationType="fade" onRequestClose={() => setPreviewUri(null)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalClose} onPress={() => setPreviewUri(null)}>
+            <Text style={styles.modalCloseText}>Close</Text>
+          </Pressable>
+          {previewUri ? <Image source={{uri: previewUri}} style={styles.modalImage} resizeMode="contain" /> : null}
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -111,5 +145,30 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 12,
     gap: 10,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(4, 8, 14, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  modalCloseText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  modalImage: {
+    width: '100%',
+    height: '82%',
   },
 });

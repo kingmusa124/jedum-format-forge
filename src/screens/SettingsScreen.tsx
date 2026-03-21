@@ -1,6 +1,7 @@
-import React, {useEffect, useState} from 'react';
-import {Alert, Pressable, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
+import {Alert, BackHandler, Pressable, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
 import {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
+import {useFocusEffect} from '@react-navigation/native';
 import {TabParamList} from '@app/navigation/types';
 import {Screen} from '@app/components/Screen';
 import {SectionCard} from '@app/components/SectionCard';
@@ -9,11 +10,7 @@ import {ValueStepper} from '@app/components/ValueStepper';
 import {BrandMark} from '@app/components/BrandMark';
 import {SymbolIcon} from '@app/components/SymbolIcon';
 import {useAppDispatch, useAppSelector} from '@app/store/hooks';
-import {
-  setCompression,
-  setOutputFolder,
-  setQuality,
-} from '@app/store/slices/conversionSlice';
+import {setCompression, setOutputFolder, setQuality} from '@app/store/slices/conversionSlice';
 import {
   resetSettings,
   setAdmobAndroidAppId,
@@ -46,12 +43,28 @@ export function SettingsScreen({}: Props) {
     getStorageSummary().then(setStorage).catch(() => null);
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (activePanel !== 'main') {
+          setActivePanel('main');
+          return true;
+        }
+
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [activePanel]),
+  );
+
   const persistSettings = (nextSettings: typeof settings) => {
     saveSettings(nextSettings).catch(() => null);
   };
 
-  const renderPanelHeader = (title: string, subtitle: string) => (
-    <SectionCard title={title} subtitle={subtitle}>
+  const renderPanelHeader = (title: string) => (
+    <SectionCard title={title}>
       <Pressable onPress={() => setActivePanel('main')} style={styles.backRow}>
         <Text style={[styles.backText, {color: theme.colors.primary}]}>Back to settings</Text>
       </Pressable>
@@ -60,62 +73,27 @@ export function SettingsScreen({}: Props) {
 
   const renderMain = () => (
     <>
-      <SectionCard
-        gradient
-        title="Settings"
-        subtitle="Clean control over the app look, conversion defaults, storage, cloud tools, and launch readiness.">
+      <SectionCard gradient title="Settings">
         <View style={styles.heroLayout}>
-          <BrandMark size={86} />
-          <View style={styles.heroMeta}>
-            <Text style={styles.heroText}>Set up the app the way you want, one focused section at a time.</Text>
-          </View>
+          <Text style={styles.settingsTitle}>Settings</Text>
+          <BrandMark size={64} />
         </View>
       </SectionCard>
 
       <View style={styles.sectionList}>
-        <SettingsTile
-          title="Appearance"
-          subtitle="Theme and visual tone"
-          icon="settings"
-          onPress={() => setActivePanel('appearance')}
-        />
-        <SettingsTile
-          title="Conversion defaults"
-          subtitle="Quality, compression, and PDF-friendly defaults"
-          icon="refresh-cw"
-          onPress={() => setActivePanel('conversion')}
-        />
-        <SettingsTile
-          title="Storage"
-          subtitle="Folder and device storage details"
-          icon="file"
-          onPress={() => setActivePanel('storage')}
-        />
-        <SettingsTile
-          title="Cloud & security"
-          subtitle="Backend connection and safer cloud setup"
-          icon="shield"
-          onPress={() => setActivePanel('cloud')}
-        />
-        <SettingsTile
-          title="Ads readiness"
-          subtitle="AdMob prep before production rollout"
-          icon="clock"
-          onPress={() => setActivePanel('ads')}
-        />
-        <SettingsTile
-          title="Maintenance"
-          subtitle="History and reset controls"
-          icon="trash-2"
-          onPress={() => setActivePanel('maintenance')}
-        />
+        <SettingsTile title="Appearance" subtitle="Theme and visual tone" icon="settings" onPress={() => setActivePanel('appearance')} />
+        <SettingsTile title="Conversion defaults" subtitle="Quality, layout, and export defaults" icon="refresh-cw" onPress={() => setActivePanel('conversion')} />
+        <SettingsTile title="Storage" subtitle="Output folder and device space" icon="file" onPress={() => setActivePanel('storage')} />
+        <SettingsTile title="Cloud & security" subtitle="Backend connection and safety checks" icon="shield" onPress={() => setActivePanel('cloud')} />
+        <SettingsTile title="Ads & consent" subtitle="AdMob prep and privacy readiness" icon="clock" onPress={() => setActivePanel('ads')} />
+        <SettingsTile title="Maintenance" subtitle="History and reset tools" icon="trash-2" onPress={() => setActivePanel('maintenance')} />
       </View>
     </>
   );
 
   const renderAppearance = () => (
     <>
-      {renderPanelHeader('Appearance', 'Choose the visual mood for the full app.')}
+      {renderPanelHeader('Appearance')}
       <SectionCard title="Theme mode">
         <View style={styles.segmentRow}>
           {(['light', 'dark', 'system'] as const).map(mode => {
@@ -147,8 +125,8 @@ export function SettingsScreen({}: Props) {
 
   const renderConversion = () => (
     <>
-      {renderPanelHeader('Conversion defaults', 'Set the default output quality and document feel once, then reuse it everywhere.')}
-      <SectionCard title="Image & PDF profile" subtitle="These values now drive the app by default so the Convert screen can stay lighter.">
+      {renderPanelHeader('Conversion defaults')}
+      <SectionCard title="Image & PDF profile" subtitle="These defaults drive the app so the Convert screen stays lighter.">
         <View style={styles.stack}>
           <ValueStepper
             label="Default quality"
@@ -177,7 +155,7 @@ export function SettingsScreen({}: Props) {
           <View style={[styles.infoCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
             <Text style={[styles.infoTitle, {color: theme.colors.text}]}>PDF image layout</Text>
             <Text style={[styles.infoBody, {color: theme.colors.textMuted}]}>
-              Images are now fitted proportionally on A4 pages with margins instead of being stretched edge to edge.
+              Images are fitted proportionally on A4 pages with margins to keep them clearer and more polished.
             </Text>
           </View>
         </View>
@@ -187,7 +165,7 @@ export function SettingsScreen({}: Props) {
 
   const renderStorage = () => (
     <>
-      {renderPanelHeader('Storage', 'Manage where files go and how much room you have left.')}
+      {renderPanelHeader('Storage')}
       <SectionCard title="Output folder">
         <View style={styles.stack}>
           <View>
@@ -226,7 +204,7 @@ export function SettingsScreen({}: Props) {
 
   const renderCloud = () => (
     <>
-      {renderPanelHeader('Cloud & security', 'Use your own backend and keep cloud conversions production-safe.')}
+      {renderPanelHeader('Cloud & security')}
       <SectionCard title="Backend connection">
         <View style={styles.stack}>
           <View>
@@ -303,7 +281,7 @@ export function SettingsScreen({}: Props) {
 
   const renderAds = () => (
     <>
-      {renderPanelHeader('Ads readiness', 'Prepare AdMob cleanly before switching to real ads.')}
+      {renderPanelHeader('Ads & consent')}
       <SectionCard title="AdMob setup">
         <View style={styles.stack}>
           <View style={[styles.toggleCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
@@ -363,6 +341,12 @@ export function SettingsScreen({}: Props) {
               ]}
             />
           </View>
+          <View style={[styles.infoCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+            <Text style={[styles.infoTitle, {color: theme.colors.text}]}>Consent & privacy</Text>
+            <Text style={[styles.infoBody, {color: theme.colors.textMuted}]}>
+              Before production ads, add a consent flow, privacy policy, and app-ads.txt. This section is where that setup belongs.
+            </Text>
+          </View>
         </View>
       </SectionCard>
     </>
@@ -370,7 +354,7 @@ export function SettingsScreen({}: Props) {
 
   const renderMaintenance = () => (
     <>
-      {renderPanelHeader('Maintenance', 'Clear local state or reset the app defaults when needed.')}
+      {renderPanelHeader('Maintenance')}
       <SectionCard title="Maintenance tools">
         <View style={styles.stack}>
           <PrimaryButton
@@ -468,15 +452,14 @@ const styles = StyleSheet.create({
   heroLayout: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 18,
   },
-  heroMeta: {
-    flex: 1,
-  },
-  heroText: {
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 15,
-    lineHeight: 22,
+  settingsTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   sectionList: {
     gap: 14,

@@ -75,19 +75,16 @@ export async function openFile(path: string) {
 }
 
 export async function shareFile(path: string, title: string) {
-  const url = path.startsWith('file://') ? path : `file://${path}`;
+  const url = await createShareableUrl(path, title);
 
   if (Platform.OS === 'android' || Platform.OS === 'ios') {
     try {
       await ShareMenu.open({
-        title,
         url,
-        urls: [url],
         type: getMimeType(path),
         failOnCancel: false,
         filename: title,
-        filenames: [title],
-        useInternalStorage: true,
+        useInternalStorage: false,
       } as never);
       return;
     } catch (error) {
@@ -122,15 +119,22 @@ export async function saveFileToDevice(path: string, title: string) {
 
   if (Platform.OS === 'android') {
     try {
-      await FileSystem.cpExternal(normalizedPath, title, getExternalDir(path));
+      await FileSystem.cpExternal(normalizedPath, buildSafeFileName(title), getExternalDir(path));
       Alert.alert('Saved', `Saved to your device ${getExternalDir(path) === 'images' ? 'gallery/files' : 'downloads'}.`);
       return;
     } catch (error) {
-      Alert.alert(
-        'Save failed',
-        error instanceof Error ? error.message : 'Unable to save this file to the device.',
-      );
-      return;
+      const fallbackName = `${Date.now()}-${buildSafeFileName(title)}`;
+      try {
+        await FileSystem.cpExternal(normalizedPath, fallbackName, getExternalDir(path));
+        Alert.alert('Saved', `Saved to your device ${getExternalDir(path) === 'images' ? 'gallery/files' : 'downloads'}.`);
+        return;
+      } catch (fallbackError) {
+        Alert.alert(
+          'Save failed',
+          fallbackError instanceof Error ? fallbackError.message : 'Unable to save this file to the device.',
+        );
+        return;
+      }
     }
   }
 
@@ -213,4 +217,23 @@ function isShareCancellation(error: unknown) {
 
   const message = error.message.toLowerCase();
   return message.includes('cancel') || message.includes('dismiss');
+}
+
+async function createShareableUrl(path: string, title: string) {
+  const normalizedPath = path.replace('file://', '');
+  const shareDir = `${RNFS.CachesDirectoryPath}/share`;
+
+  await ensureFolder(shareDir);
+
+  const targetPath = `${shareDir}/${buildSafeFileName(title)}`;
+  const exists = await RNFS.exists(targetPath);
+  if (!exists) {
+    await RNFS.copyFile(normalizedPath, targetPath);
+  }
+
+  return `file://${targetPath}`;
+}
+
+function buildSafeFileName(fileName: string) {
+  return fileName.replace(/[\\/:*?"<>|]/g, '-');
 }

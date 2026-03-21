@@ -20,7 +20,6 @@ import {
   setCustomFileName,
   setMergeIntoSinglePdf,
   setMergePdfs,
-  setOutputFolder,
   setProgress,
   setSelectedCategory,
   setSelectedConverterId,
@@ -63,6 +62,7 @@ export function ConvertScreen({navigation}: Props) {
   const {theme} = useAppTheme();
   const conversion = useAppSelector(state => state.conversion);
   const historyItems = useAppSelector(state => state.history.items);
+  const settings = useAppSelector(state => state.settings);
   const cancelRef = useRef(false);
 
   const categoryConverters = useMemo(
@@ -243,7 +243,10 @@ export function ConvertScreen({navigation}: Props) {
       dispatch(updateHistoryItem(completed));
       dispatch(finishConversion());
       refreshPersistedHistory(updatedItems);
-      navigation.getParent()?.navigate('History');
+      (navigation.getParent() as {navigate: (screen: string, params: {historyId: string}) => void} | undefined)?.navigate(
+        'ConversionResult',
+        {historyId: completed.id},
+      );
     } catch (error) {
       const failed: ConversionHistoryItem = {
         ...historyDraft,
@@ -263,10 +266,7 @@ export function ConvertScreen({navigation}: Props) {
 
   return (
     <Screen>
-      <SectionCard
-        title="Conversion studio"
-        subtitle="Pick one workflow, keep the queue clean, and export with less clutter."
-        gradient>
+      <SectionCard title="Conversion studio" gradient>
         <View style={styles.heroStats}>
           <View style={styles.heroStatCard}>
             <Text style={styles.heroValue}>{selectedConverter.name}</Text>
@@ -300,7 +300,7 @@ export function ConvertScreen({navigation}: Props) {
         )}
       </SectionCard>
 
-      <SectionCard title="Step 2: Conversion type" subtitle="Pick a family, then one path.">
+      <SectionCard title="Step 2: Conversion type">
         <View style={styles.optionRow}>
           {CATEGORIES.map(category => {
             const active = category.key === conversion.selectedCategory;
@@ -339,9 +339,6 @@ export function ConvertScreen({navigation}: Props) {
                 <Text
                   style={[styles.converterTitle, {color: active ? '#FFFFFF' : theme.colors.text}]}>
                   {converter.name}
-                </Text>
-                <Text style={[styles.converterDesc, {color: active ? 'rgba(255,255,255,0.86)' : theme.colors.textMuted}]}>
-                  {converter.description}
                 </Text>
                 <View style={styles.badgeRow}>
                   <Text style={[styles.badge, styles.formatBadge]}>
@@ -384,20 +381,12 @@ export function ConvertScreen({navigation}: Props) {
           ) : null}
 
           <View style={[styles.noteCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-            <Text style={[styles.noteTitle, {color: theme.colors.text}]}>Quality defaults live in Settings</Text>
+            <Text style={[styles.noteTitle, {color: theme.colors.text}]}>Defaults live in Settings</Text>
             <Text style={[styles.noteText, {color: theme.colors.textMuted}]}>
-              Adjust image quality, PDF behavior, storage, cloud, and ads from the main Settings tab.
+              Output folder: {settings.defaultOutputFolder}
+              {'\n'}
+              Adjust image quality, PDF layout, storage, cloud, and ads from Settings.
             </Text>
-          </View>
-          <View>
-            <Text style={[styles.label, {color: theme.colors.text}]}>Output folder</Text>
-            <TextInput
-              value={conversion.outputFolder}
-              onChangeText={text => dispatch(setOutputFolder(text))}
-              placeholder="Downloads/JedumFormatForge"
-              placeholderTextColor={theme.colors.textMuted}
-              style={[styles.input, {backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border}]}
-            />
           </View>
           <View>
             <Text style={[styles.label, {color: theme.colors.text}]}>Custom output name</Text>
@@ -472,7 +461,7 @@ export function ConvertScreen({navigation}: Props) {
 
       {conversion.isConverting ? <ProgressCard progress={conversion.progress} /> : null}
 
-      <SectionCard title="Step 4: Convert" subtitle="Run the active workflow, stop it, or clear out the current workspace.">
+      <SectionCard title="Step 4: Convert" subtitle="Run the workflow or reset the current workspace.">
         <View style={styles.actions}>
           <PrimaryButton label="Convert now" onPress={handleConvert} disabled={!canConvert} loading={conversion.isConverting} />
           <PrimaryButton
@@ -563,7 +552,7 @@ const styles = StyleSheet.create({
   },
   noteText: {
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   converterCard: {
     borderWidth: 1,
@@ -574,10 +563,6 @@ const styles = StyleSheet.create({
   converterTitle: {
     fontWeight: '800',
     fontSize: 16,
-  },
-  converterDesc: {
-    marginTop: 6,
-    lineHeight: 20,
   },
   badgeRow: {
     flexDirection: 'row',

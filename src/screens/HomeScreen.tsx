@@ -22,11 +22,15 @@ export function HomeScreen({navigation}: Props) {
       <SectionCard
         gradient
         title="Jedum Format Forge"
-        subtitle="A clean mobile workspace for fast file conversion.">
+        subtitle="Clean file conversion for images, documents, sheets, and slides.">
         <View style={styles.hero}>
-          <BrandMark size={96} />
-          <Text style={styles.heroText}>Convert images, documents, sheets, and slides with a simpler flow.</Text>
-          <PrimaryButton label="Start converting" onPress={() => navigation.navigate('Convert')} compact />
+          <View style={styles.heroRow}>
+            <BrandMark size={92} />
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroText}>A focused workspace for modern file conversion on mobile.</Text>
+              <PrimaryButton label="Start converting" onPress={() => navigation.navigate('Convert')} compact />
+            </View>
+          </View>
         </View>
       </SectionCard>
 
@@ -60,14 +64,21 @@ export function HomeScreen({navigation}: Props) {
 
 const styles = StyleSheet.create({
   hero: {
-    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 18,
+  },
+  heroCopy: {
+    flex: 1,
+    gap: 14,
   },
   heroText: {
     color: 'rgba(255,255,255,0.88)',
     fontSize: 15,
     lineHeight: 22,
-    maxWidth: 280,
   },
   historyRow: {
     flexDirection: 'row',
