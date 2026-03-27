@@ -61,23 +61,23 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 14,
+    padding: 15,
     gap: 14,
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: {width: 0, height: 10},
+    elevation: 4,
   },
   thumbWrap: {
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
   },
   thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
+    width: 58,
+    height: 58,
+    borderRadius: 16,
   },
   placeholder: {
     alignItems: 'center',
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   meta: {
     marginTop: 4,

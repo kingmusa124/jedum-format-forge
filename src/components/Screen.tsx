@@ -20,8 +20,8 @@ export function Screen({children, refreshing, onRefresh, contentContainerStyle}:
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: theme.spacing.sm + insets.top,
-          paddingBottom: theme.spacing.xl + insets.bottom + 104,
+          paddingTop: theme.spacing.md + insets.top,
+          paddingBottom: theme.spacing.xl + insets.bottom + 118,
         },
         contentContainerStyle,
       ]}
@@ -42,6 +42,9 @@ export function Screen({children, refreshing, onRefresh, contentContainerStyle}:
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
-    gap: 18,
+    gap: 16,
+    width: '100%',
+    maxWidth: 880,
+    alignSelf: 'center',
   },
 });

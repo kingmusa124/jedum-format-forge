@@ -10,7 +10,8 @@ This is a starter backend for the app's cloud conversion flows.
 - applies basic HTTP security headers
 - rate-limits requests
 - exposes a health check
-- includes placeholder conversion routes so the mobile app has a stable API target
+- converts Office files to PDF with LibreOffice when installed
+- converts PDF files to text-first DOCX output
 
 ## Why you need it
 
@@ -55,13 +56,25 @@ Headers:
 Current behavior:
 
 - validates and stores the upload
-- returns a placeholder JSON payload
+- converts `DOCX/XLSX/PPT/PPTX -> PDF` using LibreOffice
+- converts `PDF -> DOCX` as a text-first Word export
+- returns a download URL for the converted file
 
 Next production steps:
 
-1. Plug in LibreOffice or another document conversion engine.
+1. Improve `PDF -> DOCX` beyond text-first output.
 2. Add malware scanning and MIME/content sniffing.
 3. Store outputs in object storage with signed download URLs.
 4. Add auth/session management if users will have accounts.
 5. Add deletion jobs for temp uploads and outputs.
 6. Add privacy policy + retention policy for store submission.
+
+## LibreOffice requirement
+
+Set `LIBREOFFICE_PATH` in `.env` if LibreOffice is not on the default Windows path.
+
+Example:
+
+```env
+LIBREOFFICE_PATH=C:\Program Files\LibreOffice\program\soffice.com
+```

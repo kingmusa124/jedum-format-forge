@@ -14,27 +14,27 @@ export const palette = {
 };
 
 export const lightColors = {
-  background: '#EEF3FA',
-  card: '#FBFDFF',
-  surface: '#E8EEFA',
+  background: '#EDF1F8',
+  card: '#FAFCFF',
+  surface: '#E7ECF7',
   text: palette.gray800,
   textMuted: palette.gray500,
-  primary: palette.blue,
-  accent: palette.green,
-  border: '#D5E0EF',
+  primary: '#4167FF',
+  accent: '#16C99D',
+  border: '#D3DCEB',
   danger: palette.danger,
   shadow: 'rgba(20, 29, 48, 0.08)',
 };
 
 export const darkColors = {
-  background: '#060C16',
-  card: '#0D1627',
-  surface: '#121E34',
+  background: '#03060D',
+  card: '#0A101A',
+  surface: '#111827',
   text: palette.white,
-  textMuted: '#8FA1BE',
-  primary: '#6E8FFF',
-  accent: '#22D4A2',
-  border: '#1A2942',
+  textMuted: '#8B99B3',
+  primary: '#7B8DFF',
+  accent: '#2AD1A3',
+  border: '#182233',
   danger: '#FF7B80',
-  shadow: 'rgba(0, 0, 0, 0.34)',
+  shadow: 'rgba(0, 0, 0, 0.42)',
 };

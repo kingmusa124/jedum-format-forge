@@ -11,11 +11,10 @@ Use this when you are ready to monetize Jedum Format Forge.
 
 ## 2. App changes still needed
 
-- Install a React Native mobile ads SDK.
-- Add the Android AdMob App ID to `AndroidManifest.xml`.
-- Add the iOS AdMob App ID to `Info.plist`.
-- Initialize the mobile ads SDK on app startup.
-- Add banner/interstitial/rewarded placements carefully so they do not interrupt conversion flows.
+- Keep the React Native mobile ads SDK up to date.
+- Replace the current Google test App IDs in `AndroidManifest.xml` and `Info.plist` with your real AdMob App IDs before release.
+- Keep banner/interstitial/rewarded placements careful so they do not interrupt conversion flows.
+- Use the in-app AdMob preview only with test ads until the app is store-ready.
 
 ## 3. Privacy and consent
 

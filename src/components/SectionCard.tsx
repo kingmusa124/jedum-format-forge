@@ -33,13 +33,13 @@ export function SectionCard({title, subtitle, children, style, gradient}: Props)
   if (gradient) {
     return (
       <LinearGradient
-        colors={['#2746C7', theme.colors.primary, '#17C896']}
+        colors={['#0E1730', '#19274F', theme.colors.primary]}
         start={{x: 0, y: 0}}
         end={{x: 1, y: 1}}
         style={[
           styles.card,
           {
-            borderColor: 'transparent',
+            borderColor: 'rgba(123,141,255,0.2)',
             shadowColor: theme.colors.shadow,
           },
           style,
@@ -68,24 +68,24 @@ export function SectionCard({title, subtitle, children, style, gradient}: Props)
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderRadius: 28,
-    padding: 20,
-    shadowOpacity: 0.12,
+    borderRadius: 26,
+    padding: 18,
+    shadowOpacity: 0.1,
     shadowRadius: 22,
     shadowOffset: {width: 0, height: 12},
-    elevation: 6,
+    elevation: 5,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 21,
+    marginTop: 5,
+    fontSize: 13,
+    lineHeight: 20,
   },
 });

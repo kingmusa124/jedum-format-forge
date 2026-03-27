@@ -24,8 +24,6 @@ import {
   setSelectedCategory,
   setSelectedConverterId,
   setSelectedOutputFormat,
-  setServerApiKey,
-  setServerUrl,
 } from '@app/store/slices/conversionSlice';
 import {addHistoryItem, updateHistoryItem} from '@app/store/slices/historySlice';
 import {captureImage, pickFiles} from '@app/services/filePickerService';
@@ -181,8 +179,11 @@ export function ConvertScreen({navigation}: Props) {
       Alert.alert('No compatible files', 'The selected converter does not match the files currently in queue.');
       return;
     }
-    if (selectedConverter.requiresServer && !conversion.serverUrl.trim()) {
-      Alert.alert('Server URL required', 'Enter your HTTPS conversion server URL for this cloud workflow.');
+    if (selectedConverter.requiresServer && !settings.backendUrl.trim()) {
+      Alert.alert(
+        'Backend required',
+        'Add your backend URL in Settings before running this cloud conversion.',
+      );
       return;
     }
     if (isNativeRequirementMissing) {
@@ -225,8 +226,8 @@ export function ConvertScreen({navigation}: Props) {
           mergePdfs: conversion.mergePdfs,
           outputFolder: conversion.outputFolder,
           customFileName: conversion.customFileName,
-          serverUrl: conversion.serverUrl,
-          serverApiKey: conversion.serverApiKey,
+          serverUrl: settings.backendUrl,
+          serverApiKey: settings.backendApiKey,
         },
         progress => dispatch(setProgress(progress)),
         () => cancelRef.current,
@@ -266,18 +267,18 @@ export function ConvertScreen({navigation}: Props) {
 
   return (
     <Screen>
-      <SectionCard title="Conversion studio" gradient>
-        <View style={styles.heroStats}>
-          <View style={styles.heroStatCard}>
+      <SectionCard title="Conversion studio" gradient style={styles.heroCard}>
+        <View style={styles.heroTop}>
+          <View style={styles.heroPrimary}>
+            <Text style={styles.heroEyebrow}>Workflow</Text>
             <Text style={styles.heroValue}>{selectedConverter.name}</Text>
-            <Text style={styles.heroLabel}>Active workflow</Text>
           </View>
-          <View style={styles.heroStatCard}>
-            <Text style={styles.heroValue}>{compatibleFiles.length}</Text>
-            <Text style={styles.heroLabel}>Ready files</Text>
+          <View style={styles.heroCount}>
+            <Text style={styles.heroCountValue}>{compatibleFiles.length}</Text>
+            <Text style={styles.heroCountLabel}>Ready files</Text>
           </View>
         </View>
-        <View style={[styles.actions, {marginTop: 18}]}>
+        <View style={[styles.actionsRow, {marginTop: 16}]}>
           <PrimaryButton
             label={`Pick ${selectedConverter.inputExtensions.join('/').toUpperCase()} files`}
             onPress={handlePickFiles}
@@ -287,8 +288,8 @@ export function ConvertScreen({navigation}: Props) {
       </SectionCard>
 
       <SectionCard
-        title="Step 1: Files"
-        subtitle={conversion.queue.length ? `${conversion.queue.length} file(s) in queue.` : 'Start with a fresh set of files.'}>
+        title="Files"
+        subtitle={conversion.queue.length ? `${conversion.queue.length} file(s) in queue.` : 'Start with a fresh set.'}>
         {conversion.queue.length ? (
           <View style={styles.stack}>
             {conversion.queue.map(file => (
@@ -300,7 +301,7 @@ export function ConvertScreen({navigation}: Props) {
         )}
       </SectionCard>
 
-      <SectionCard title="Step 2: Conversion type">
+      <SectionCard title="Conversion type">
         <View style={styles.optionRow}>
           {CATEGORIES.map(category => {
             const active = category.key === conversion.selectedCategory;
@@ -336,24 +337,22 @@ export function ConvertScreen({navigation}: Props) {
                     borderColor: active ? theme.colors.primary : theme.colors.border,
                   },
                 ]}>
-                <Text
-                  style={[styles.converterTitle, {color: active ? '#FFFFFF' : theme.colors.text}]}>
-                  {converter.name}
-                </Text>
+                <View style={styles.converterTop}>
+                  <Text
+                    style={[styles.converterTitle, {color: active ? '#FFFFFF' : theme.colors.text}]}>
+                    {converter.name}
+                  </Text>
+                  <Text style={[styles.converterMeta, {color: active ? 'rgba(255,255,255,0.78)' : theme.colors.textMuted}]}>
+                    {converter.outputFormat.toUpperCase()}
+                  </Text>
+                </View>
                 <View style={styles.badgeRow}>
                   <Text style={[styles.badge, styles.formatBadge]}>
                     {converter.inputExtensions.join(', ').toUpperCase()}
                   </Text>
-                  {converter.requiresServer ? (
-                    <Text style={[styles.badge, styles.cloudBadge]}>Cloud Required</Text>
-                  ) : (
-                    <Text style={[styles.badge, styles.offlineBadge]}>Offline</Text>
-                  )}
                   {converter.requiresNativeModule && !nativeSupport[converter.requiresNativeModule] ? (
                     <Text style={[styles.badge, styles.warningBadge]}>Native Module Missing</Text>
                   ) : null}
-                  {!converter.supportsBatch ? <Text style={[styles.badge, styles.infoBadge]}>Single File</Text> : null}
-                  {converter.previewUnavailable ? <Text style={[styles.badge, styles.infoBadge]}>Preview Limited</Text> : null}
                 </View>
               </Pressable>
             );
@@ -361,16 +360,10 @@ export function ConvertScreen({navigation}: Props) {
         </View>
       </SectionCard>
 
-      <SectionCard title="Step 3: Output setup" subtitle={`Selected: ${selectedConverter.name}.`}>
-        <View style={styles.stack}>
-          {selectedConverter.requiresServer ? (
-            <View style={[styles.serverNotice, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-              <Text style={[styles.serverTitle, {color: theme.colors.text}]}>Cloud conversion requires your own backend</Text>
-              <Text style={[styles.serverText, {color: theme.colors.textMuted}]}>
-                This app does not ship with a hosted backend. Use your own HTTPS conversion API and only send files to a server you trust.
-              </Text>
-            </View>
-          ) : null}
+      {conversion.isConverting ? <ProgressCard progress={conversion.progress} /> : null}
+
+      <SectionCard title="Convert">
+        <View style={styles.actions}>
           {isNativeRequirementMissing ? (
             <View style={[styles.serverNotice, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
               <Text style={[styles.serverTitle, {color: theme.colors.text}]}>This converter is unavailable in the current Android build</Text>
@@ -379,15 +372,6 @@ export function ConvertScreen({navigation}: Props) {
               </Text>
             </View>
           ) : null}
-
-          <View style={[styles.noteCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-            <Text style={[styles.noteTitle, {color: theme.colors.text}]}>Defaults live in Settings</Text>
-            <Text style={[styles.noteText, {color: theme.colors.textMuted}]}>
-              Output folder: {settings.defaultOutputFolder}
-              {'\n'}
-              Adjust image quality, PDF layout, storage, cloud, and ads from Settings.
-            </Text>
-          </View>
           <View>
             <Text style={[styles.label, {color: theme.colors.text}]}>Custom output name</Text>
             <TextInput
@@ -398,32 +382,6 @@ export function ConvertScreen({navigation}: Props) {
               style={[styles.input, {backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border}]}
             />
           </View>
-          {selectedConverter.requiresServer ? (
-            <View>
-              <Text style={[styles.label, {color: theme.colors.text}]}>Server URL</Text>
-              <TextInput
-                value={conversion.serverUrl}
-                onChangeText={text => dispatch(setServerUrl(text))}
-                placeholder="https://your-server.example.com/convert"
-                placeholderTextColor={theme.colors.textMuted}
-                autoCapitalize="none"
-                style={[styles.input, {backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border}]}
-              />
-            </View>
-          ) : null}
-          {selectedConverter.requiresServer ? (
-            <View>
-              <Text style={[styles.label, {color: theme.colors.text}]}>Backend API key</Text>
-              <TextInput
-                value={conversion.serverApiKey}
-                onChangeText={text => dispatch(setServerApiKey(text))}
-                placeholder="Paste the x-api-key for your backend"
-                placeholderTextColor={theme.colors.textMuted}
-                autoCapitalize="none"
-                style={[styles.input, {backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border}]}
-              />
-            </View>
-          ) : null}
           {selectedConverter.id === 'images-to-pdf' ? (
             <View style={[styles.toggleCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
               <View style={{flex: 1}}>
@@ -456,13 +414,6 @@ export function ConvertScreen({navigation}: Props) {
               />
             </View>
           ) : null}
-        </View>
-      </SectionCard>
-
-      {conversion.isConverting ? <ProgressCard progress={conversion.progress} /> : null}
-
-      <SectionCard title="Step 4: Convert" subtitle="Run the workflow or reset the current workspace.">
-        <View style={styles.actions}>
           <PrimaryButton label="Convert now" onPress={handleConvert} disabled={!canConvert} loading={conversion.isConverting} />
           <PrimaryButton
             label="Cancel job"
@@ -489,28 +440,57 @@ export function ConvertScreen({navigation}: Props) {
 
 const styles = StyleSheet.create({
   actions: {gap: 12},
+  actionsRow: {gap: 12},
   stack: {gap: 12},
   caption: {fontSize: 14},
-  heroStats: {
+  heroCard: {
+    paddingBottom: 16,
+  },
+  heroTop: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 12,
   },
-  heroStatCard: {
+  heroPrimary: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+  },
+  heroEyebrow: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   heroValue: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 16,
-  },
-  heroLabel: {
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 18,
     marginTop: 6,
-    fontSize: 12,
+    lineHeight: 23,
+  },
+  heroCount: {
+    width: 92,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.11)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCountValue: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  heroCountLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '700',
   },
   optionRow: {
     flexDirection: 'row',
@@ -519,7 +499,7 @@ const styles = StyleSheet.create({
   },
   optionChip: {
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 18,
     borderWidth: 1,
     minWidth: 96,
@@ -541,34 +521,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  noteCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-  },
-  noteTitle: {
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  noteText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
   converterCard: {
     borderWidth: 1,
     borderRadius: 22,
-    padding: 16,
+    padding: 15,
     marginTop: 10,
+  },
+  converterTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   converterTitle: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 15,
+    flex: 1,
+  },
+  converterMeta: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
   },
   badge: {
     paddingHorizontal: 10,
@@ -577,15 +556,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  cloudBadge: {
-    backgroundColor: '#2E5BFF',
-  },
-  offlineBadge: {
-    backgroundColor: '#00C48C',
-  },
-  infoBadge: {
-    backgroundColor: '#6B7A90',
   },
   formatBadge: {
     backgroundColor: '#344054',

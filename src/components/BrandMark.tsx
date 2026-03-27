@@ -19,9 +19,9 @@ export function BrandMark({size = 112}: Props) {
           width: size,
           height: size,
           borderRadius: 28 * scale,
-          backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
+          backgroundColor: isDark ? '#08101B' : '#FFFFFF',
           padding: 14 * scale,
-          borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,32,51,0.06)',
+          borderColor: isDark ? 'rgba(123,141,255,0.14)' : 'rgba(23,32,51,0.06)',
         },
       ]}>
       <View
@@ -30,7 +30,7 @@ export function BrandMark({size = 112}: Props) {
           {
             borderRadius: 22 * scale,
             borderColor: theme.colors.primary,
-            backgroundColor: isDark ? '#0E1830' : '#F8FBFF',
+            backgroundColor: isDark ? '#0D1627' : '#F8FBFF',
           },
         ]}>
         <View
@@ -96,6 +96,7 @@ export function BrandMark({size = 112}: Props) {
             height: 12 * scale,
             borderRadius: 999,
             backgroundColor: isDark ? '#9AA7BA' : '#546178',
+            opacity: isDark ? 0.9 : 1,
             bottom: 8 * scale,
           },
         ]}

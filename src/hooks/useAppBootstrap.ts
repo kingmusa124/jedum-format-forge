@@ -6,6 +6,7 @@ import {
   setQuality,
 } from '@app/store/slices/conversionSlice';
 import {
+  ThemeMode,
   setDefaultCompression,
   setBackendApiKey,
   setBackendUrl,
@@ -24,6 +25,7 @@ export function useAppBootstrap() {
   const dispatch = useAppDispatch();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bootThemeMode, setBootThemeMode] = useState<ThemeMode | null>(null);
 
   useEffect(() => {
     async function hydrate() {
@@ -46,11 +48,12 @@ export function useAppBootstrap() {
         dispatch(setHistory(history));
 
         if (settings) {
+          setBootThemeMode(settings.themeMode);
           dispatch(setThemeMode(settings.themeMode));
           dispatch(setDefaultQuality(settings.defaultQuality));
           dispatch(setDefaultCompression(settings.defaultCompression));
           dispatch(setDefaultOutputFolder(settings.defaultOutputFolder));
-          dispatch(setBackendUrl(settings.backendUrl || 'http://10.0.2.2:4000/api/convert'));
+          dispatch(setBackendUrl(settings.backendUrl || 'http://127.0.0.1:4000/api/convert'));
           dispatch(setBackendApiKey(settings.backendApiKey || ''));
           dispatch(setAdsEnabled(!!settings.adsEnabled));
           dispatch(setAdmobAndroidAppId(settings.admobAndroidAppId || ''));
@@ -58,7 +61,7 @@ export function useAppBootstrap() {
           dispatch(setQuality(settings.defaultQuality));
           dispatch(setCompression(settings.defaultCompression));
           dispatch(setOutputFolder(settings.defaultOutputFolder));
-          dispatch(setServerUrl(settings.backendUrl || 'http://10.0.2.2:4000/api/convert'));
+          dispatch(setServerUrl(settings.backendUrl || 'http://127.0.0.1:4000/api/convert'));
           dispatch(setServerApiKey(settings.backendApiKey || ''));
         }
       } catch (bootstrapError) {
@@ -76,5 +79,5 @@ export function useAppBootstrap() {
     hydrate();
   }, [dispatch]);
 
-  return {ready, error};
+  return {ready, error, bootThemeMode};
 }

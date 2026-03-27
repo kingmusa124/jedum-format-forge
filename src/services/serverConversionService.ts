@@ -66,7 +66,18 @@ export async function convertWithServer(
   clearTimeout(timeout);
 
   if (!response.ok) {
-    throw new Error(`Server conversion failed with status ${response.status}`);
+    let serverMessage = `Server conversion failed with status ${response.status}`;
+
+    try {
+      const payload = (await response.json()) as {error?: string};
+      if (payload.error) {
+        serverMessage = payload.error;
+      }
+    } catch {
+      // Keep the fallback message.
+    }
+
+    throw new Error(serverMessage);
   }
 
   const result = (await response.json()) as {downloadUrl?: string};
@@ -100,7 +111,18 @@ export async function checkServerHealth(serverUrl: string, serverApiKey: string)
   });
 
   if (!response.ok) {
-    throw new Error(`Health check failed with status ${response.status}`);
+    let healthMessage = `Health check failed with status ${response.status}`;
+
+    try {
+      const payload = (await response.json()) as {error?: string};
+      if (payload.error) {
+        healthMessage = payload.error;
+      }
+    } catch {
+      // Ignore parsing failures and keep the fallback message.
+    }
+
+    throw new Error(healthMessage);
   }
 
   return response.json();

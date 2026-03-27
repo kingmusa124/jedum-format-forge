@@ -13,6 +13,7 @@ interface Props {
 
 export function PrimaryButton({label, onPress, disabled, loading, secondary, compact}: Props) {
   const {theme} = useAppTheme();
+  const isSecondary = Boolean(secondary);
 
   return (
     <Pressable
@@ -22,17 +23,21 @@ export function PrimaryButton({label, onPress, disabled, loading, secondary, com
         styles.button,
         compact ? styles.compactButton : null,
         {
-          backgroundColor: secondary ? theme.colors.surface : theme.colors.primary,
-          borderColor: secondary ? theme.colors.border : theme.colors.primary,
-          opacity: disabled ? 0.45 : 1,
-          transform: [{scale: pressed && !disabled ? 0.985 : 1}],
-          shadowColor: secondary ? 'transparent' : theme.colors.shadow,
+          backgroundColor: isSecondary ? theme.colors.surface : theme.colors.primary,
+          borderColor: isSecondary ? theme.colors.border : theme.colors.primary,
+          opacity: disabled ? 0.4 : 1,
+          transform: [{scale: pressed && !disabled ? 0.982 : 1}],
+          shadowColor: isSecondary ? 'transparent' : theme.colors.shadow,
+          shadowOpacity: isSecondary ? 0 : 0.22,
+          shadowRadius: isSecondary ? 0 : 18,
+          shadowOffset: isSecondary ? {width: 0, height: 0} : {width: 0, height: 10},
+          elevation: isSecondary ? 0 : 5,
         },
       ]}>
       {loading ? (
-        <ActivityIndicator color={secondary ? theme.colors.primary : '#FFFFFF'} />
+        <ActivityIndicator color={isSecondary ? theme.colors.primary : '#FFFFFF'} />
       ) : (
-        <Text style={[styles.label, {color: secondary ? theme.colors.text : '#FFFFFF'}]}>{label}</Text>
+        <Text style={[styles.label, {color: isSecondary ? theme.colors.text : '#FFFFFF'}]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -40,26 +45,22 @@ export function PrimaryButton({label, onPress, disabled, loading, secondary, com
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 56,
-    borderRadius: 18,
+    minHeight: 58,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 4,
+    paddingHorizontal: 22,
   },
   compactButton: {
-    minHeight: 46,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    minHeight: 48,
+    paddingHorizontal: 18,
+    borderRadius: 18,
     alignSelf: 'flex-start',
   },
   label: {
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    letterSpacing: 0.1,
   },
 });

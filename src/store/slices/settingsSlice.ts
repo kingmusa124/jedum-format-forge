@@ -20,7 +20,7 @@ const initialState: SettingsState = {
   defaultQuality: 90,
   defaultCompression: 85,
   defaultOutputFolder: 'Downloads/JedumFormatForge',
-  backendUrl: 'http://10.0.2.2:4000/api/convert',
+  backendUrl: 'http://127.0.0.1:4000/api/convert',
   backendApiKey: '',
   adsEnabled: false,
   admobAndroidAppId: '',

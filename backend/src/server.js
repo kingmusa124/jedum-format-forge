@@ -7,11 +7,14 @@ const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const {canConvertWithLibreOffice, convertOfficeDocument} = require('./libreoffice');
+const {convertPdfToDocx} = require('./pdf-to-docx');
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
 const apiKey = process.env.API_KEY || '';
 const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || 25);
+const publicBaseUrl = process.env.PUBLIC_BASE_URL || '';
 const uploadDir = path.join(__dirname, '..', 'storage', 'uploads');
 const outputDir = path.join(__dirname, '..', 'storage', 'outputs');
 
@@ -56,14 +59,18 @@ const upload = multer({
     fileSize: maxUploadMb * 1024 * 1024,
   },
   fileFilter(req, file, callback) {
-    const allowed = new Set([
+    const allowedMimeTypes = new Set([
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     ]);
+    const allowedExtensions = new Set(['.pdf', '.docx', '.xls', '.xlsx', '.ppt', '.pptx']);
+    const extension = path.extname(file.originalname || '').toLowerCase();
 
-    if (allowed.has(file.mimetype)) {
+    if (allowedMimeTypes.has(file.mimetype) || allowedExtensions.has(extension)) {
       callback(null, true);
       return;
     }
@@ -95,17 +102,32 @@ app.post('/api/convert', requireApiKey, upload.single('file'), async (req, res) 
 
     const outputFileName = buildOutputName(req.file.originalname, targetFormat);
     const outputPath = path.join(outputDir, outputFileName);
+    const fileExtension = path.extname(req.file.originalname || '').toLowerCase();
+    let convertedPath = null;
 
-    // Placeholder implementation:
-    // In production, replace this copy step with LibreOffice / conversion worker execution.
-    fs.copyFileSync(req.file.path, outputPath);
+    if (targetFormat === 'docx' && fileExtension === '.pdf') {
+      convertedPath = await convertPdfToDocx(req.file.path, req.file.originalname, outputPath);
+    } else if (canConvertWithLibreOffice(req.file.mimetype, targetFormat, req.file.originalname)) {
+      convertedPath = await convertOfficeDocument(req.file.path, req.file.originalname, targetFormat, outputPath);
+    }
+
+    if (!convertedPath) {
+      res.status(400).json({
+        error:
+          'This backend route currently supports Office to PDF and PDF to Word conversions.',
+      });
+      return;
+    }
 
     res.json({
       ok: true,
       targetFormat,
       originalName: req.file.originalname,
       downloadUrl: `${getBaseUrl(req)}/downloads/${encodeURIComponent(outputFileName)}`,
-      note: 'Placeholder backend response. Replace with real conversion engine.',
+      note:
+        targetFormat === 'docx'
+          ? 'Converted to a richer Word document with page sections and heading detection.'
+          : 'Converted with LibreOffice.',
     });
   } catch (error) {
     res.status(500).json({
@@ -171,5 +193,9 @@ function cleanupTempUpload(file) {
 }
 
 function getBaseUrl(req) {
+  if (publicBaseUrl) {
+    return publicBaseUrl.replace(/\/$/, '');
+  }
+
   return `${req.protocol}://${req.get('host')}`;
 }

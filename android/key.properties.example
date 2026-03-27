@@ -1,0 +1,4 @@
+storeFile=release-upload-key.keystore
+storePassword=replace-with-your-store-password
+keyAlias=upload
+keyPassword=replace-with-your-key-password

@@ -15,33 +15,35 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function Tabs() {
-  const {theme} = useAppTheme();
+  const {theme, isDark} = useAppTheme();
 
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.card,
+          backgroundColor: isDark ? 'rgba(10,16,26,0.94)' : 'rgba(250,252,255,0.96)',
           borderTopColor: 'transparent',
-          height: 78,
+          height: 82,
           paddingTop: 10,
           paddingBottom: Platform.OS === 'ios' ? 12 : 10,
-          marginHorizontal: 18,
-          marginBottom: 14,
-          borderRadius: 24,
+          marginHorizontal: 20,
+          marginBottom: 16,
+          borderRadius: 28,
           position: 'absolute',
           shadowColor: theme.colors.shadow,
-          shadowOpacity: 0.24,
-          shadowRadius: 20,
-          shadowOffset: {width: 0, height: 10},
-          elevation: 10,
+          shadowOpacity: 0.34,
+          shadowRadius: 24,
+          shadowOffset: {width: 0, height: 14},
+          elevation: 12,
+          borderWidth: 1,
+          borderColor: isDark ? 'rgba(123,141,255,0.16)' : 'rgba(65,103,255,0.12)',
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '700',
+          fontWeight: '800',
           marginTop: 2,
         },
         tabBarIcon: ({color, size}) => {
@@ -74,9 +76,13 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {backgroundColor: theme.colors.card},
+        headerStyle: {backgroundColor: theme.colors.background},
         headerTintColor: theme.colors.text,
         contentStyle: {backgroundColor: theme.colors.background},
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontWeight: '800',
+        },
       }}>
       <Stack.Screen name="Tabs" component={Tabs} options={{headerShown: false}} />
       <Stack.Screen

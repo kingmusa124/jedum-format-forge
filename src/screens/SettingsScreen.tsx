@@ -9,6 +9,7 @@ import {PrimaryButton} from '@app/components/PrimaryButton';
 import {ValueStepper} from '@app/components/ValueStepper';
 import {BrandMark} from '@app/components/BrandMark';
 import {SymbolIcon} from '@app/components/SymbolIcon';
+import {AdMobBannerCard} from '@app/components/AdMobBannerCard';
 import {useAppDispatch, useAppSelector} from '@app/store/hooks';
 import {setCompression, setOutputFolder, setQuality} from '@app/store/slices/conversionSlice';
 import {
@@ -31,7 +32,7 @@ import {useAppTheme} from '@app/theme/ThemeProvider';
 type Props = BottomTabScreenProps<TabParamList, 'Settings'>;
 type SettingsPanel = 'main' | 'appearance' | 'conversion' | 'storage' | 'cloud' | 'ads' | 'maintenance';
 
-export function SettingsScreen({}: Props) {
+export function SettingsScreen({navigation}: Props) {
   const dispatch = useAppDispatch();
   const settings = useAppSelector(state => state.settings);
   const {theme} = useAppTheme();
@@ -42,6 +43,16 @@ export function SettingsScreen({}: Props) {
   useEffect(() => {
     getStorageSummary().then(setStorage).catch(() => null);
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      if (activePanel !== 'main') {
+        setActivePanel('main');
+      }
+    });
+
+    return unsubscribe;
+  }, [activePanel, navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,21 +75,17 @@ export function SettingsScreen({}: Props) {
   };
 
   const renderPanelHeader = (title: string) => (
-    <SectionCard title={title}>
-      <Pressable onPress={() => setActivePanel('main')} style={styles.backRow}>
-        <Text style={[styles.backText, {color: theme.colors.primary}]}>Back to settings</Text>
-      </Pressable>
-    </SectionCard>
+    <View style={styles.panelHeader}>
+      <Text style={[styles.panelTitle, {color: theme.colors.text}]}>{title}</Text>
+    </View>
   );
 
   const renderMain = () => (
     <>
-      <SectionCard gradient title="Settings">
-        <View style={styles.heroLayout}>
-          <Text style={styles.settingsTitle}>Settings</Text>
-          <BrandMark size={64} />
-        </View>
-      </SectionCard>
+      <View style={styles.settingsHeader}>
+        <Text style={[styles.settingsTitle, {color: theme.colors.text}]}>Settings</Text>
+        <BrandMark size={52} />
+      </View>
 
       <View style={styles.sectionList}>
         <SettingsTile title="Appearance" subtitle="Theme and visual tone" icon="settings" onPress={() => setActivePanel('appearance')} />
@@ -347,6 +354,7 @@ export function SettingsScreen({}: Props) {
               Before production ads, add a consent flow, privacy policy, and app-ads.txt. This section is where that setup belongs.
             </Text>
           </View>
+          <AdMobBannerCard enabled={settings.adsEnabled} />
         </View>
       </SectionCard>
     </>
@@ -377,7 +385,7 @@ export function SettingsScreen({}: Props) {
                 defaultQuality: 90,
                 defaultCompression: 85,
                 defaultOutputFolder: 'Downloads/JedumFormatForge',
-                backendUrl: 'http://10.0.2.2:4000/api/convert',
+                backendUrl: 'http://127.0.0.1:4000/api/convert',
                 backendApiKey: '',
                 adsEnabled: false,
                 admobAndroidAppId: '',
@@ -449,20 +457,30 @@ function formatStorage(bytes: number) {
 }
 
 const styles = StyleSheet.create({
-  heroLayout: {
+  settingsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 18,
+    gap: 16,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   settingsTitle: {
-    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+  },
+  panelHeader: {
+    paddingHorizontal: 4,
+    marginBottom: -2,
+  },
+  panelTitle: {
     fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.4,
+    letterSpacing: -0.6,
   },
   sectionList: {
-    gap: 14,
+    gap: 12,
   },
   tile: {
     borderWidth: 1,
@@ -471,15 +489,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.09,
+    shadowRadius: 18,
+    shadowOffset: {width: 0, height: 10},
     elevation: 4,
   },
   tileIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -488,16 +506,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tileSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  backRow: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  backText: {
-    fontWeight: '800',
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 18,
   },
   segmentRow: {
     flexDirection: 'row',

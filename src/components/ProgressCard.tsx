@@ -19,7 +19,9 @@ export function ProgressCard({progress}: {progress: ConversionProgress}) {
       ]}>
       <View style={styles.row}>
         <Text style={[styles.title, {color: theme.colors.text}]}>Conversion progress</Text>
-        <Text style={[styles.percent, {color: theme.colors.primary}]}>{progress.percent}%</Text>
+        <View style={[styles.percentBadge, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+          <Text style={[styles.percent, {color: theme.colors.primary}]}>{progress.percent}%</Text>
+        </View>
       </View>
       <View style={[styles.track, {backgroundColor: theme.colors.border}]}>
         <View
@@ -43,13 +45,13 @@ export function ProgressCard({progress}: {progress: ConversionProgress}) {
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 24,
     padding: 18,
     gap: 12,
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: {width: 0, height: 10},
-    elevation: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: {width: 0, height: 12},
+    elevation: 5,
   },
   row: {
     flexDirection: 'row',
@@ -57,12 +59,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 15,
   },
+  percentBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
   percent: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
   track: {
     height: 12,

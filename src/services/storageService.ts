@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import JSZip from 'jszip';
 import {Alert, Linking, Platform, Share} from 'react-native';
-import {FileSystem} from 'react-native-file-access';
 import RNFS from 'react-native-fs';
 import ShareMenu from 'react-native-share';
 import RNFetchBlob from 'rn-fetch-blob';
-import {ConversionHistoryItem} from '@app/types/files';
+import {ConversionHistoryItem, ConversionResultFile} from '@app/types/files';
 
 const HISTORY_KEY = '@jedum-format-forge/history';
 const SETTINGS_KEY = '@jedum-format-forge/settings';
@@ -76,6 +76,7 @@ export async function openFile(path: string) {
 
 export async function shareFile(path: string, title: string) {
   const url = await createShareableUrl(path, title);
+  const safeName = buildSafeFileName(title);
 
   if (Platform.OS === 'android' || Platform.OS === 'ios') {
     try {
@@ -83,8 +84,8 @@ export async function shareFile(path: string, title: string) {
         url,
         type: getMimeType(path),
         failOnCancel: false,
-        filename: title,
-        useInternalStorage: false,
+        filename: safeName,
+        useInternalStorage: true,
       } as never);
       return;
     } catch (error) {
@@ -115,26 +116,30 @@ export async function shareFile(path: string, title: string) {
 }
 
 export async function saveFileToDevice(path: string, title: string) {
-  const normalizedPath = path.replace('file://', '');
+  const safeName = buildSafeFileName(title);
+  const mimeType = getMimeType(path);
 
   if (Platform.OS === 'android') {
+    const normalizedSourcePath = path.replace('file://', '');
+
     try {
-      await FileSystem.cpExternal(normalizedPath, buildSafeFileName(title), getExternalDir(path));
-      Alert.alert('Saved', `Saved to your device ${getExternalDir(path) === 'images' ? 'gallery/files' : 'downloads'}.`);
+      const targetPath = await copyFileToAndroidSaveLocation(normalizedSourcePath, safeName, mimeType);
+      Alert.alert('Saved', `Saved to ${targetPath}`, [
+        {text: 'Done'},
+        {
+          text: 'Open',
+          onPress: () => {
+            void openFile(targetPath);
+          },
+        },
+      ]);
       return;
     } catch (error) {
-      const fallbackName = `${Date.now()}-${buildSafeFileName(title)}`;
-      try {
-        await FileSystem.cpExternal(normalizedPath, fallbackName, getExternalDir(path));
-        Alert.alert('Saved', `Saved to your device ${getExternalDir(path) === 'images' ? 'gallery/files' : 'downloads'}.`);
-        return;
-      } catch (fallbackError) {
-        Alert.alert(
-          'Save failed',
-          fallbackError instanceof Error ? fallbackError.message : 'Unable to save this file to the device.',
-        );
-        return;
-      }
+      Alert.alert(
+        'Save failed',
+        error instanceof Error ? error.message : 'Unable to save this file to the device.',
+      );
+      return;
     }
   }
 
@@ -157,6 +162,61 @@ export async function saveFileToDevice(path: string, title: string) {
       error instanceof Error ? error.message : 'Unable to save this file to the device.',
     );
   }
+}
+
+export async function saveFilesAsZipToDevice(
+  files: Pick<ConversionResultFile, 'uri' | 'name' | 'type'>[],
+  zipName: string,
+) {
+  if (!files.length) {
+    throw new Error('There are no files available to archive.');
+  }
+
+  const safeZipName = buildSafeFileName(zipName.endsWith('.zip') ? zipName : `${zipName}.zip`);
+  const tempZipPath = `${RNFS.CachesDirectoryPath}/${safeZipName}`;
+  const archive = new JSZip();
+
+  for (const file of files) {
+    const normalizedPath = file.uri.replace('file://', '');
+    const base64 = await RNFS.readFile(normalizedPath, 'base64');
+    archive.file(buildSafeFileName(file.name), base64, {base64: true});
+  }
+
+  const zipBase64 = await archive.generateAsync({
+    type: 'base64',
+    compression: 'STORE',
+  });
+
+  await deleteFileIfExists(tempZipPath);
+  await RNFS.writeFile(tempZipPath, zipBase64, 'base64');
+
+  if (Platform.OS === 'android') {
+    try {
+      const targetPath = await copyFileToAndroidSaveLocation(
+        tempZipPath,
+        safeZipName,
+        'application/zip',
+      );
+      Alert.alert('Saved as ZIP', `Saved to ${targetPath}`, [
+        {text: 'Done'},
+        {
+          text: 'Open',
+          onPress: () => {
+            void openFile(targetPath);
+          },
+        },
+      ]);
+      return;
+    } catch (error) {
+      Alert.alert(
+        'ZIP save failed',
+        error instanceof Error ? error.message : 'Unable to save this ZIP archive to the device.',
+      );
+      return;
+    }
+  }
+
+  await saveFileToDevice(tempZipPath, safeZipName);
 }
 
 export async function getStorageSummary() {
@@ -227,13 +287,58 @@ async function createShareableUrl(path: string, title: string) {
 
   const targetPath = `${shareDir}/${buildSafeFileName(title)}`;
   const exists = await RNFS.exists(targetPath);
-  if (!exists) {
-    await RNFS.copyFile(normalizedPath, targetPath);
+  if (exists) {
+    await RNFS.unlink(targetPath);
   }
+  await RNFS.copyFile(normalizedPath, targetPath);
 
   return `file://${targetPath}`;
 }
 
 function buildSafeFileName(fileName: string) {
   return fileName.replace(/[\\/:*?"<>|]/g, '-');
+}
+
+async function resolveAndroidSaveDirectory() {
+  const candidates = [
+    RNFS.DownloadDirectoryPath ? `${RNFS.DownloadDirectoryPath}/JedumFormatForge` : '',
+    RNFS.ExternalDirectoryPath ? `${RNFS.ExternalDirectoryPath}/JedumFormatForge` : '',
+    `${RNFS.DocumentDirectoryPath}/Exports`,
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      await ensureFolder(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error('Unable to find a writable directory on this device.');
+}
+
+async function copyFileToAndroidSaveLocation(
+  normalizedSourcePath: string,
+  safeName: string,
+  mimeType: string,
+) {
+  const targetDirectory = await resolveAndroidSaveDirectory();
+  await ensureFolder(targetDirectory);
+
+  const targetPath = `${targetDirectory}/${safeName}`;
+  const existing = await RNFS.exists(targetPath);
+  if (existing) {
+    await RNFS.unlink(targetPath);
+  }
+
+  await RNFS.copyFile(normalizedSourcePath, targetPath);
+
+  if (mimeType.startsWith('image/')) {
+    void RNFetchBlob.fs.scanFile([{path: targetPath, mime: mimeType}]).catch(() => {
+      // Some Android builds fail to scan copied files even though the save succeeded.
+    });
+  }
+
+  return targetPath;
 }

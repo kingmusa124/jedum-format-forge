@@ -41,7 +41,16 @@ export async function convertFiles(
     case 'merge-pdfs':
       return mergePdfs(files, outputDir, onProgress, shouldCancel);
     case 'word-to-pdf':
-      return convertHtmlLikeFiles(files, outputDir, 'docx', 'application/pdf', settings, onProgress, shouldCancel);
+      return convertOfficeFilesWithServer(
+        files,
+        outputDir,
+        settings,
+        onProgress,
+        shouldCancel,
+        ['docx'],
+        'pdf',
+        'application/pdf',
+      );
     case 'pdf-to-docx-server':
       return convertPdfToDocxWithServer(files, outputDir, settings, onProgress, shouldCancel);
     case 'docx-to-txt':
@@ -187,10 +196,10 @@ async function convertImagesToWebp(
 
     results.push({
       id: `${image.id}-webp`,
-      uri: outputPath,
+      uri: toFileUri(outputPath),
       name: targetName,
       type: 'image/webp',
-      thumbnailUri: outputPath,
+      thumbnailUri: toFileUri(outputPath),
     });
     onProgress({
       percent: Math.round(((index + 1) / imageFiles.length) * 100),
@@ -228,10 +237,10 @@ async function convertImages(
     const uri = await convertImageFormat(sourcePath.uri, targetFormat, settings.quality, outputPath);
     results.push({
       id: `${image.id}-${outputExtension}`,
-      uri,
+      uri: toFileUri(uri),
       name: buildOutputName(image.name, outputExtension, settings.customFileName),
       type: `image/${outputExtension}`,
-      thumbnailUri: uri,
+      thumbnailUri: toFileUri(uri),
     });
     onProgress({
       percent: Math.round(((index + 1) / imageFiles.length) * 100),
@@ -281,10 +290,10 @@ async function convertPdfToImages(
 
       results.push({
         id: `${pdf.id}-${pageIndex}`,
-        uri: outputPath,
+        uri: toFileUri(outputPath),
         name: targetName,
         type: `image/${format}`,
-        thumbnailUri: outputPath,
+        thumbnailUri: toFileUri(outputPath),
       });
     }
     onProgress({
@@ -493,6 +502,61 @@ async function convertPptWithServer(
   return results;
 }
 
+async function convertOfficeFilesWithServer(
+  files: PickedFile[],
+  outputDir: string,
+  settings: ConversionSettings,
+  onProgress: ProgressCallback,
+  shouldCancel: CancelCallback,
+  inputExtensions: string[],
+  targetFormat: 'pdf' | 'docx',
+  mimeType: string,
+) {
+  const supportedFiles = files.filter(file => inputExtensions.includes(file.extension));
+  if (!supportedFiles.length) {
+    throw new Error(`Select ${inputExtensions.join('/').toUpperCase()} files for this conversion.`);
+  }
+
+  const results: ConversionResultFile[] = [];
+  for (let index = 0; index < supportedFiles.length; index += 1) {
+    if (shouldCancel()) throw new Error('cancelled');
+    const file = supportedFiles[index];
+    onProgress({
+      percent: Math.round(((index + 0.4) / supportedFiles.length) * 100),
+      stage: `Uploading ${file.name}`,
+      etaSeconds: Math.max(0, supportedFiles.length - index - 1) * 5,
+    });
+
+    const downloadedPath = await convertWithServer(
+      file.uri,
+      targetFormat,
+      settings.serverUrl || '',
+      settings.serverApiKey || '',
+      file.name,
+      file.type,
+    );
+
+    const targetName = buildOutputName(file.name, targetFormat, settings.customFileName);
+    const outputPath = `${outputDir}/${targetName}`;
+    await RNFS.copyFile(downloadedPath, outputPath);
+
+    results.push({
+      id: `${file.id}-${targetFormat}`,
+      uri: outputPath,
+      name: targetName,
+      type: mimeType,
+    });
+
+    onProgress({
+      percent: Math.round(((index + 1) / supportedFiles.length) * 100),
+      stage: `Downloaded ${file.name}`,
+      etaSeconds: Math.max(0, supportedFiles.length - index - 1) * 2,
+    });
+  }
+
+  return results;
+}
+
 async function convertPdfToDocxWithServer(
   files: PickedFile[],
   outputDir: string,
@@ -500,49 +564,16 @@ async function convertPdfToDocxWithServer(
   onProgress: ProgressCallback,
   shouldCancel: CancelCallback,
 ) {
-  const pdfFiles = files.filter(file => file.extension === 'pdf');
-  if (!pdfFiles.length) {
-    throw new Error('Select PDF files for DOCX conversion.');
-  }
-
-  const results: ConversionResultFile[] = [];
-  for (let index = 0; index < pdfFiles.length; index += 1) {
-    if (shouldCancel()) throw new Error('cancelled');
-    const file = pdfFiles[index];
-    onProgress({
-      percent: Math.round(((index + 0.4) / pdfFiles.length) * 100),
-      stage: `Uploading ${file.name}`,
-      etaSeconds: Math.max(0, pdfFiles.length - index - 1) * 5,
-    });
-
-    const downloadedPath = await convertWithServer(
-      file.uri,
-      'docx',
-      settings.serverUrl || '',
-      settings.serverApiKey || '',
-      file.name,
-      file.type,
-    );
-
-    const targetName = buildOutputName(file.name, 'docx', settings.customFileName);
-    const outputPath = `${outputDir}/${targetName}`;
-    await RNFS.copyFile(downloadedPath, outputPath);
-
-    results.push({
-      id: `${file.id}-docx`,
-      uri: outputPath,
-      name: targetName,
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-
-    onProgress({
-      percent: Math.round(((index + 1) / pdfFiles.length) * 100),
-      stage: `Downloaded ${file.name}`,
-      etaSeconds: Math.max(0, pdfFiles.length - index - 1) * 2,
-    });
-  }
-
-  return results;
+  return convertOfficeFilesWithServer(
+    files,
+    outputDir,
+    settings,
+    onProgress,
+    shouldCancel,
+    ['pdf'],
+    'docx',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
 }
 
 async function convertPptToText(
@@ -656,4 +687,8 @@ function getImageSize(uri: string) {
       reject,
     );
   });
+}
+
+function toFileUri(path: string) {
+  return path.startsWith('file://') ? path : `file://${path}`;
 }
