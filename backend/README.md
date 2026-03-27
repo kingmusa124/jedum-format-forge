@@ -78,3 +78,24 @@ Example:
 ```env
 LIBREOFFICE_PATH=C:\Program Files\LibreOffice\program\soffice.com
 ```
+
+## Railway deployment
+
+For Railway, use the `backend` folder as the service root and deploy with the included `Dockerfile`.
+
+Recommended environment variables:
+
+```env
+PORT=4000
+API_KEY=your-production-api-key
+MAX_UPLOAD_MB=25
+ALLOWED_ORIGINS=https://www.jedumformatforge.name.ng,https://jedumformatforge.name.ng
+PUBLIC_BASE_URL=https://api.jedumformatforge.name.ng
+LIBREOFFICE_PATH=/usr/bin/libreoffice
+```
+
+Why Docker is recommended on Railway:
+
+- the default Node runtime does not include LibreOffice
+- the Docker image installs LibreOffice so `DOCX/XLSX/PPT/PPTX -> PDF` works
+- `PDF -> DOCX` continues to work in the same backend

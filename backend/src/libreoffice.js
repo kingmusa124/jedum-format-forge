@@ -10,6 +10,15 @@ const WINDOWS_CANDIDATES = [
   'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
 ].filter(Boolean);
 
+const LINUX_CANDIDATES = [
+  process.env.LIBREOFFICE_PATH,
+  '/usr/bin/libreoffice',
+  '/usr/bin/soffice',
+  '/snap/bin/libreoffice',
+  'libreoffice',
+  'soffice',
+].filter(Boolean);
+
 async function convertOfficeDocument(inputPath, originalName, targetFormat, outputPath) {
   if (targetFormat !== 'pdf') {
     throw new Error('The backend currently supports DOCX/XLSX/PPTX to PDF first. Other cloud conversions will follow next.');
@@ -56,13 +65,23 @@ async function convertOfficeDocument(inputPath, originalName, targetFormat, outp
 }
 
 function resolveLibreOfficeBinary() {
-  for (const candidate of WINDOWS_CANDIDATES) {
+  const candidates = process.platform === 'win32' ? WINDOWS_CANDIDATES : LINUX_CANDIDATES;
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    if (!candidate.includes(path.sep)) {
+      return candidate;
+    }
+
     if (candidate && fs.existsSync(candidate)) {
       return candidate;
     }
   }
 
-  return process.platform === 'win32' ? null : 'soffice';
+  return null;
 }
 
 function runLibreOffice(binary, inputPath, outputDir) {
