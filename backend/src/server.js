@@ -21,6 +21,8 @@ const outputDir = path.join(__dirname, '..', 'storage', 'outputs');
 fs.mkdirSync(uploadDir, {recursive: true});
 fs.mkdirSync(outputDir, {recursive: true});
 
+app.set('trust proxy', 1);
+
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map(value => value.trim())
