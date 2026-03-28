@@ -8,6 +8,7 @@ import {ConversionHistoryItem, ConversionResultFile} from '@app/types/files';
 
 const HISTORY_KEY = '@jedum-format-forge/history';
 const SETTINGS_KEY = '@jedum-format-forge/settings';
+const INSTALLATION_ID_KEY = '@jedum-format-forge/installation-id';
 
 export async function ensureFolder(path: string) {
   const exists = await RNFS.exists(path);
@@ -40,6 +41,19 @@ export async function saveSettings(settings: unknown) {
 export async function loadSettings<T>() {
   const raw = await AsyncStorage.getItem(SETTINGS_KEY);
   return raw ? (JSON.parse(raw) as T) : null;
+}
+
+export async function getInstallationId() {
+  const existing = await AsyncStorage.getItem(INSTALLATION_ID_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const created = `jff-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+  await AsyncStorage.setItem(INSTALLATION_ID_KEY, created);
+  return created;
 }
 
 export async function deleteFileIfExists(path: string) {

@@ -6,6 +6,7 @@ const fs = require('fs');
 const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const {canConvertWithLibreOffice, convertOfficeDocument} = require('./libreoffice');
 const {convertPdfToDocx} = require('./pdf-to-docx');
@@ -13,8 +14,10 @@ const {convertPdfToDocx} = require('./pdf-to-docx');
 const app = express();
 const port = Number(process.env.PORT || 4000);
 const apiKey = process.env.API_KEY || '';
+const sessionSecret = process.env.SESSION_SECRET || apiKey;
 const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || 25);
 const publicBaseUrl = process.env.PUBLIC_BASE_URL || '';
+const sessionTtlMs = Number(process.env.SESSION_TTL_MINUTES || 30) * 60 * 1000;
 const uploadDir = path.join(__dirname, '..', 'storage', 'uploads');
 const outputDir = path.join(__dirname, '..', 'storage', 'outputs');
 
@@ -55,6 +58,13 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+const sessionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const upload = multer({
   dest: uploadDir,
   limits: {
@@ -89,7 +99,41 @@ app.get('/health', requireApiKey, (_req, res) => {
   });
 });
 
-app.post('/api/convert', requireApiKey, upload.single('file'), async (req, res) => {
+app.post('/session', sessionLimiter, express.json({limit: '32kb'}), (req, res) => {
+  if (!sessionSecret) {
+    res.status(500).json({error: 'Server session secret is not configured.'});
+    return;
+  }
+
+  const installationId = String(req.body?.installationId || '').trim();
+  const platform = String(req.body?.platform || '')
+    .trim()
+    .toLowerCase();
+  const appVersion = String(req.body?.appVersion || '').trim();
+
+  if (!installationId || installationId.length < 8) {
+    res.status(400).json({error: 'Missing or invalid installation identifier.'});
+    return;
+  }
+
+  if (!['android', 'ios'].includes(platform)) {
+    res.status(400).json({error: 'Unsupported platform.'});
+    return;
+  }
+
+  const expiresAt = new Date(Date.now() + sessionTtlMs).toISOString();
+  const payload = {
+    installationId,
+    platform,
+    appVersion,
+    expiresAt,
+  };
+
+  const accessToken = signSessionPayload(payload);
+  res.json({accessToken, expiresAt});
+});
+
+app.post('/api/convert', requireAuthorizedClient, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({error: 'No file uploaded.'});
@@ -140,7 +184,7 @@ app.post('/api/convert', requireApiKey, upload.single('file'), async (req, res) 
   }
 });
 
-app.get('/downloads/:fileName', requireApiKey, (req, res) => {
+app.get('/downloads/:fileName', requireAuthorizedClient, (req, res) => {
   const requested = path.basename(req.params.fileName);
   const fullPath = path.join(outputDir, requested);
 
@@ -174,6 +218,77 @@ function requireApiKey(req, res, next) {
   }
 
   next();
+}
+
+function requireAuthorizedClient(req, res, next) {
+  const sessionToken = getBearerToken(req);
+
+  if (sessionToken) {
+    const validation = verifySessionToken(sessionToken);
+    if (!validation.ok) {
+      res.status(401).json({error: validation.error});
+      return;
+    }
+
+    req.clientSession = validation.payload;
+    next();
+    return;
+  }
+
+  requireApiKey(req, res, next);
+}
+
+function getBearerToken(req) {
+  const authorization = req.header('authorization') || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : '';
+}
+
+function signSessionPayload(payload) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', sessionSecret)
+    .update(encoded)
+    .digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function verifySessionToken(token) {
+  if (!sessionSecret) {
+    return {ok: false, error: 'Server session secret is not configured.'};
+  }
+
+  const [encodedPayload, signature] = token.split('.');
+  if (!encodedPayload || !signature) {
+    return {ok: false, error: 'Invalid session token.'};
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', sessionSecret)
+    .update(encodedPayload)
+    .digest('base64url');
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
+    return {ok: false, error: 'Invalid session token.'};
+  }
+
+  try {
+    const payload = JSON.parse(
+      Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+    );
+    if (!payload?.expiresAt || Date.parse(payload.expiresAt) <= Date.now()) {
+      return {ok: false, error: 'Session token expired.'};
+    }
+
+    return {ok: true, payload};
+  } catch {
+    return {ok: false, error: 'Invalid session token.'};
+  }
 }
 
 function buildOutputName(originalName, targetFormat) {

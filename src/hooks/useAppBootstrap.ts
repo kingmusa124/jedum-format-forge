@@ -6,6 +6,8 @@ import {
   setQuality,
 } from '@app/store/slices/conversionSlice';
 import {
+  AdsConsentStatus,
+  PrivacyOptionsRequirementStatus,
   ThemeMode,
   setDefaultCompression,
   setBackendApiKey,
@@ -14,12 +16,15 @@ import {
   setDefaultQuality,
   setAdmobAndroidAppId,
   setAdmobIosAppId,
+  setAdsConsentInfo,
   setAdsEnabled,
+  setPrivacyPolicyAccepted,
   setThemeMode,
 } from '@app/store/slices/settingsSlice';
 import {useAppDispatch} from '@app/store/hooks';
 import {loadHistory, loadSettings} from '@app/services/storageService';
 import {setServerApiKey, setServerUrl} from '@app/store/slices/conversionSlice';
+import {DEFAULT_BACKEND_URL} from '@app/config/backend';
 
 export function useAppBootstrap() {
   const dispatch = useAppDispatch();
@@ -42,28 +47,49 @@ export function useAppBootstrap() {
             adsEnabled?: boolean;
             admobAndroidAppId?: string;
             admobIosAppId?: string;
+            privacyPolicyAccepted?: boolean;
+            adsConsentStatus?: AdsConsentStatus;
+            adsCanRequestAds?: boolean;
+            privacyOptionsRequirementStatus?: PrivacyOptionsRequirementStatus;
+            isConsentFormAvailable?: boolean;
           }>(),
         ]);
 
         dispatch(setHistory(history));
 
-        if (settings) {
-          setBootThemeMode(settings.themeMode);
-          dispatch(setThemeMode(settings.themeMode));
-          dispatch(setDefaultQuality(settings.defaultQuality));
-          dispatch(setDefaultCompression(settings.defaultCompression));
-          dispatch(setDefaultOutputFolder(settings.defaultOutputFolder));
-          dispatch(setBackendUrl(settings.backendUrl || 'http://127.0.0.1:4000/api/convert'));
-          dispatch(setBackendApiKey(settings.backendApiKey || ''));
-          dispatch(setAdsEnabled(!!settings.adsEnabled));
-          dispatch(setAdmobAndroidAppId(settings.admobAndroidAppId || ''));
-          dispatch(setAdmobIosAppId(settings.admobIosAppId || ''));
-          dispatch(setQuality(settings.defaultQuality));
-          dispatch(setCompression(settings.defaultCompression));
-          dispatch(setOutputFolder(settings.defaultOutputFolder));
-          dispatch(setServerUrl(settings.backendUrl || 'http://127.0.0.1:4000/api/convert'));
-          dispatch(setServerApiKey(settings.backendApiKey || ''));
-        }
+        const nextThemeMode = settings?.themeMode || 'system';
+        const nextQuality = settings?.defaultQuality ?? 90;
+        const nextCompression = settings?.defaultCompression ?? 85;
+        const nextOutputFolder =
+          settings?.defaultOutputFolder || 'Downloads/JedumFormatForge';
+        const nextBackendUrl = settings?.backendUrl || DEFAULT_BACKEND_URL;
+        const nextBackendApiKey = settings?.backendApiKey || '';
+
+        setBootThemeMode(nextThemeMode);
+        dispatch(setThemeMode(nextThemeMode));
+        dispatch(setDefaultQuality(nextQuality));
+        dispatch(setDefaultCompression(nextCompression));
+        dispatch(setDefaultOutputFolder(nextOutputFolder));
+        dispatch(setBackendUrl(nextBackendUrl));
+        dispatch(setBackendApiKey(nextBackendApiKey));
+        dispatch(setAdsEnabled(!!settings?.adsEnabled));
+        dispatch(setAdmobAndroidAppId(settings?.admobAndroidAppId || ''));
+        dispatch(setAdmobIosAppId(settings?.admobIosAppId || ''));
+        dispatch(setPrivacyPolicyAccepted(!!settings?.privacyPolicyAccepted));
+        dispatch(
+          setAdsConsentInfo({
+            status: settings?.adsConsentStatus || 'UNKNOWN',
+            canRequestAds: !!settings?.adsCanRequestAds,
+            privacyOptionsRequirementStatus:
+              settings?.privacyOptionsRequirementStatus || 'UNKNOWN',
+            isConsentFormAvailable: !!settings?.isConsentFormAvailable,
+          }),
+        );
+        dispatch(setQuality(nextQuality));
+        dispatch(setCompression(nextCompression));
+        dispatch(setOutputFolder(nextOutputFolder));
+        dispatch(setServerUrl(nextBackendUrl));
+        dispatch(setServerApiKey(nextBackendApiKey));
       } catch (bootstrapError) {
         const message =
           bootstrapError instanceof Error

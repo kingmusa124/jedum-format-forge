@@ -1,4 +1,19 @@
 import RNFS from 'react-native-fs';
+import {Platform} from 'react-native';
+import {version as appVersion} from '../../app.json';
+import {getInstallationId} from '@app/services/storageService';
+
+type SessionTokenResponse = {
+  accessToken: string;
+  expiresAt: string;
+};
+
+let cachedSession:
+  | {
+      token: string;
+      expiresAtMs: number;
+    }
+  | undefined;
 
 function validateServerUrl(serverUrl: string) {
   if (!serverUrl) {
@@ -33,6 +48,7 @@ export async function convertWithServer(
   mimeType: string,
 ) {
   const validatedUrl = validateServerUrl(serverUrl);
+  const authHeaders = await buildAuthHeaders(validatedUrl, serverApiKey);
 
   const formData = new FormData();
   formData.append('file', {
@@ -52,7 +68,7 @@ export async function convertWithServer(
       body: formData,
       headers: {
         Accept: 'application/json',
-        'x-api-key': serverApiKey,
+        ...authHeaders,
       },
       signal: controller.signal,
     });
@@ -89,9 +105,7 @@ export async function convertWithServer(
   const download = RNFS.downloadFile({
     fromUrl: result.downloadUrl,
     toFile: convertedPath,
-    headers: {
-      'x-api-key': serverApiKey,
-    },
+    headers: authHeaders,
   });
 
   await download.promise;
@@ -101,14 +115,20 @@ export async function convertWithServer(
 export async function checkServerHealth(serverUrl: string, serverApiKey: string) {
   const validatedUrl = validateServerUrl(serverUrl);
   const healthUrl = validatedUrl.replace(/\/api\/convert\/?$/i, '/health');
+  const authHeaders = await buildAuthHeaders(validatedUrl, serverApiKey);
 
-  const response = await fetch(healthUrl, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      ...(serverApiKey ? {'x-api-key': serverApiKey} : {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(healthUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...authHeaders,
+      },
+    });
+  } catch {
+    throw new Error('Unable to reach the cloud conversion server. Check your internet connection and server URL.');
+  }
 
   if (!response.ok) {
     let healthMessage = `Health check failed with status ${response.status}`;
@@ -126,4 +146,62 @@ export async function checkServerHealth(serverUrl: string, serverApiKey: string)
   }
 
   return response.json();
+}
+
+async function buildAuthHeaders(serverUrl: string, serverApiKey: string) {
+  if (serverApiKey) {
+    return {'x-api-key': serverApiKey} as Record<string, string>;
+  }
+
+  const sessionToken = await getSessionToken(serverUrl);
+  return {
+    Authorization: `Bearer ${sessionToken}`,
+  } as Record<string, string>;
+}
+
+async function getSessionToken(serverUrl: string) {
+  if (cachedSession && Date.now() < cachedSession.expiresAtMs - 30_000) {
+    return cachedSession.token;
+  }
+
+  const sessionUrl = serverUrl.replace(/\/api\/convert\/?$/i, '/session');
+  const installationId = await getInstallationId();
+
+  const response = await fetch(sessionUrl, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      installationId,
+      platform: Platform.OS,
+      appVersion,
+    }),
+  });
+
+  if (!response.ok) {
+    let sessionMessage = `Session request failed with status ${response.status}`;
+
+    try {
+      const payload = (await response.json()) as {error?: string};
+      if (payload.error) {
+        sessionMessage = payload.error;
+      }
+    } catch {
+      // Keep the fallback message.
+    }
+
+    throw new Error(sessionMessage);
+  }
+
+  const payload = (await response.json()) as SessionTokenResponse;
+  const expiresAtMs = Date.parse(payload.expiresAt);
+
+  cachedSession = {
+    token: payload.accessToken,
+    expiresAtMs: Number.isNaN(expiresAtMs) ? Date.now() + 10 * 60 * 1000 : expiresAtMs,
+  };
+
+  return cachedSession.token;
 }

@@ -88,10 +88,12 @@ Recommended environment variables:
 ```env
 PORT=4000
 API_KEY=your-production-api-key
+SESSION_SECRET=your-production-session-secret
 MAX_UPLOAD_MB=25
 ALLOWED_ORIGINS=https://www.jedumformatforge.name.ng,https://jedumformatforge.name.ng
 PUBLIC_BASE_URL=https://api.jedumformatforge.name.ng
 LIBREOFFICE_PATH=/usr/bin/libreoffice
+SESSION_TTL_MINUTES=30
 ```
 
 Why Docker is recommended on Railway:
@@ -99,3 +101,11 @@ Why Docker is recommended on Railway:
 - the default Node runtime does not include LibreOffice
 - the Docker image installs LibreOffice so `DOCX/XLSX/PPT/PPTX -> PDF` works
 - `PDF -> DOCX` continues to work in the same backend
+
+## Session auth for the mobile app
+
+The backend now supports a safer release flow:
+
+- `POST /session` mints a short-lived session token for the app
+- `POST /api/convert` and `GET /downloads/:fileName` accept either `x-api-key` or `Authorization: Bearer <token>`
+- the app can use the session flow so normal release users do not need a long-lived API key in settings

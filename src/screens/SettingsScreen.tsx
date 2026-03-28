@@ -1,5 +1,15 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Alert, BackHandler, Pressable, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
+import {
+  Alert,
+  BackHandler,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import {useFocusEffect} from '@react-navigation/native';
 import {TabParamList} from '@app/navigation/types';
@@ -11,11 +21,19 @@ import {BrandMark} from '@app/components/BrandMark';
 import {SymbolIcon} from '@app/components/SymbolIcon';
 import {AdMobBannerCard} from '@app/components/AdMobBannerCard';
 import {useAppDispatch, useAppSelector} from '@app/store/hooks';
-import {setCompression, setOutputFolder, setQuality} from '@app/store/slices/conversionSlice';
+import type {RootState} from '@app/store';
+import {
+  setCompression,
+  setOutputFolder,
+  setQuality,
+  setServerApiKey,
+  setServerUrl,
+} from '@app/store/slices/conversionSlice';
 import {
   resetSettings,
   setAdmobAndroidAppId,
   setAdmobIosAppId,
+  setAdsConsentInfo,
   setAdsEnabled,
   setBackendApiKey,
   setBackendUrl,
@@ -28,6 +46,14 @@ import {clearHistory} from '@app/store/slices/historySlice';
 import {getStorageSummary, saveHistory, saveSettings} from '@app/services/storageService';
 import {checkServerHealth} from '@app/services/serverConversionService';
 import {useAppTheme} from '@app/theme/ThemeProvider';
+import {DEFAULT_BACKEND_URL} from '@app/config/backend';
+import {PRIVACY_POLICY_URL} from '@app/config/legal';
+import {
+  gatherAdConsent,
+  getAdConsentInfo,
+  openAdPrivacyOptions,
+  refreshAdConsentInfo,
+} from '@app/services/admobService';
 
 type Props = BottomTabScreenProps<TabParamList, 'Settings'>;
 type SettingsPanel = 'main' | 'appearance' | 'conversion' | 'storage' | 'cloud' | 'ads' | 'maintenance';
@@ -37,11 +63,23 @@ export function SettingsScreen({navigation}: Props) {
   const settings = useAppSelector(state => state.settings);
   const {theme} = useAppTheme();
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [runningConsentAction, setRunningConsentAction] = useState<
+    null | 'refresh' | 'review' | 'privacy'
+  >(null);
   const [activePanel, setActivePanel] = useState<SettingsPanel>('main');
   const [storage, setStorage] = useState<{freeSpace: number; totalSpace: number} | null>(null);
 
   useEffect(() => {
     getStorageSummary().then(setStorage).catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    getAdConsentInfo()
+      .then(info => {
+        dispatch(setAdsConsentInfo(info));
+        persistSettings({...settings, ...mapConsentInfoToSettings(info, settings)});
+      })
+      .catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -91,7 +129,9 @@ export function SettingsScreen({navigation}: Props) {
         <SettingsTile title="Appearance" subtitle="Theme and visual tone" icon="settings" onPress={() => setActivePanel('appearance')} />
         <SettingsTile title="Conversion defaults" subtitle="Quality, layout, and export defaults" icon="refresh-cw" onPress={() => setActivePanel('conversion')} />
         <SettingsTile title="Storage" subtitle="Output folder and device space" icon="file" onPress={() => setActivePanel('storage')} />
-        <SettingsTile title="Cloud & security" subtitle="Backend connection and safety checks" icon="shield" onPress={() => setActivePanel('cloud')} />
+        {__DEV__ ? (
+          <SettingsTile title="Cloud & security" subtitle="Backend connection and safety checks" icon="shield" onPress={() => setActivePanel('cloud')} />
+        ) : null}
         <SettingsTile title="Ads & consent" subtitle="AdMob prep and privacy readiness" icon="clock" onPress={() => setActivePanel('ads')} />
         <SettingsTile title="Maintenance" subtitle="History and reset tools" icon="trash-2" onPress={() => setActivePanel('maintenance')} />
       </View>
@@ -220,9 +260,10 @@ export function SettingsScreen({navigation}: Props) {
               value={settings.backendUrl}
               onChangeText={text => {
                 dispatch(setBackendUrl(text));
+                dispatch(setServerUrl(text));
                 persistSettings({...settings, backendUrl: text});
               }}
-              placeholder="https://your-domain.example.com/api/convert"
+              placeholder={DEFAULT_BACKEND_URL}
               placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
               style={[
@@ -241,6 +282,7 @@ export function SettingsScreen({navigation}: Props) {
               value={settings.backendApiKey}
               onChangeText={text => {
                 dispatch(setBackendApiKey(text));
+                dispatch(setServerApiKey(text));
                 persistSettings({...settings, backendApiKey: text});
               }}
               placeholder="x-api-key"
@@ -289,12 +331,12 @@ export function SettingsScreen({navigation}: Props) {
   const renderAds = () => (
     <>
       {renderPanelHeader('Ads & consent')}
-      <SectionCard title="AdMob setup">
+      <SectionCard title="Privacy & consent">
         <View style={styles.stack}>
           <View style={[styles.toggleCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
             <View style={{flex: 1}}>
-              <Text style={[styles.label, {color: theme.colors.text}]}>Enable ads in app builds</Text>
-              <Text style={[styles.toggleHint, {color: theme.colors.textMuted}]}>Keep this off until test ads, consent, and policy work are ready.</Text>
+              <Text style={[styles.label, {color: theme.colors.text}]}>Enable ads when consent allows</Text>
+              <Text style={[styles.toggleHint, {color: theme.colors.textMuted}]}>Ads stay disabled until Google consent allows ad requests. Keep test ads active until your AdMob account approves live serving.</Text>
             </View>
             <Switch
               value={settings.adsEnabled}
@@ -306,55 +348,106 @@ export function SettingsScreen({navigation}: Props) {
               thumbColor="#FFFFFF"
             />
           </View>
-          <View>
-            <Text style={[styles.label, {color: theme.colors.text}]}>Android AdMob app ID</Text>
-            <TextInput
-              value={settings.admobAndroidAppId}
-              onChangeText={text => {
-                dispatch(setAdmobAndroidAppId(text));
-                persistSettings({...settings, admobAndroidAppId: text});
-              }}
-              placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~android"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            />
-          </View>
-          <View>
-            <Text style={[styles.label, {color: theme.colors.text}]}>iOS AdMob app ID</Text>
-            <TextInput
-              value={settings.admobIosAppId}
-              onChangeText={text => {
-                dispatch(setAdmobIosAppId(text));
-                persistSettings({...settings, admobIosAppId: text});
-              }}
-              placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~ios"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            />
-          </View>
           <View style={[styles.infoCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-            <Text style={[styles.infoTitle, {color: theme.colors.text}]}>Consent & privacy</Text>
+            <Text style={[styles.infoTitle, {color: theme.colors.text}]}>Current consent state</Text>
             <Text style={[styles.infoBody, {color: theme.colors.textMuted}]}>
-              Before production ads, add a consent flow, privacy policy, and app-ads.txt. This section is where that setup belongs.
+              {`Status: ${settings.adsConsentStatus}\nCan request ads: ${
+                settings.adsCanRequestAds ? 'Yes' : 'No'
+              }\nPrivacy options: ${settings.privacyOptionsRequirementStatus}\nConsent form available: ${
+                settings.isConsentFormAvailable ? 'Yes' : 'No'
+              }`}
             </Text>
           </View>
-          <AdMobBannerCard enabled={settings.adsEnabled} />
+          <PrimaryButton
+            label="Open privacy policy"
+            onPress={async () => {
+              try {
+                await Linking.openURL(PRIVACY_POLICY_URL);
+              } catch {
+                Alert.alert('Unable to open link', 'The privacy policy link could not be opened on this device.');
+              }
+            }}
+            secondary
+          />
+          <PrimaryButton
+            label={runningConsentAction === 'review' ? 'Opening consent...' : 'Review ad consent'}
+            onPress={async () => {
+              try {
+                setRunningConsentAction('review');
+                const info = await gatherAdConsent();
+                dispatch(setAdsConsentInfo(info));
+                persistSettings({...settings, ...mapConsentInfoToSettings(info, settings)});
+                Alert.alert('Consent updated', 'The app refreshed your ad consent choices.');
+              } catch (error) {
+                Alert.alert(
+                  'Consent unavailable',
+                  error instanceof Error
+                    ? error.message
+                    : 'The consent form could not be opened right now.',
+                );
+              } finally {
+                setRunningConsentAction(null);
+              }
+            }}
+            disabled={runningConsentAction !== null}
+            secondary
+          />
+          <PrimaryButton
+            label={runningConsentAction === 'refresh' ? 'Refreshing status...' : 'Refresh consent status'}
+            onPress={async () => {
+              try {
+                setRunningConsentAction('refresh');
+                const info = await refreshAdConsentInfo();
+                dispatch(setAdsConsentInfo(info));
+                persistSettings({...settings, ...mapConsentInfoToSettings(info, settings)});
+                Alert.alert('Consent refreshed', 'The latest consent status has been loaded.');
+              } catch (error) {
+                Alert.alert(
+                  'Refresh failed',
+                  error instanceof Error
+                    ? error.message
+                    : 'The app could not refresh the consent status.',
+                );
+              } finally {
+                setRunningConsentAction(null);
+              }
+            }}
+            disabled={runningConsentAction !== null}
+            secondary
+          />
+          <PrimaryButton
+            label={
+              runningConsentAction === 'privacy'
+                ? 'Opening privacy and cookie settings...'
+                : 'Privacy and cookie settings'
+            }
+            onPress={async () => {
+              try {
+                setRunningConsentAction('privacy');
+                const info = await openAdPrivacyOptions();
+                dispatch(setAdsConsentInfo(info));
+                persistSettings({...settings, ...mapConsentInfoToSettings(info, settings)});
+              } catch (error) {
+                Alert.alert(
+                  'Privacy options unavailable',
+                  error instanceof Error
+                    ? error.message
+                    : 'The privacy options form is not available right now.',
+                );
+              } finally {
+                setRunningConsentAction(null);
+              }
+            }}
+            disabled={
+              runningConsentAction !== null ||
+              settings.privacyOptionsRequirementStatus === 'NOT_REQUIRED'
+            }
+            secondary
+          />
+          <AdMobBannerCard
+            enabled={settings.adsEnabled}
+            canRequestAds={settings.adsCanRequestAds}
+          />
         </View>
       </SectionCard>
     </>
@@ -385,13 +478,20 @@ export function SettingsScreen({navigation}: Props) {
                 defaultQuality: 90,
                 defaultCompression: 85,
                 defaultOutputFolder: 'Downloads/JedumFormatForge',
-                backendUrl: 'http://127.0.0.1:4000/api/convert',
+                backendUrl: DEFAULT_BACKEND_URL,
                 backendApiKey: '',
                 adsEnabled: false,
                 admobAndroidAppId: '',
                 admobIosAppId: '',
+                privacyPolicyAccepted: false,
+                adsConsentStatus: 'UNKNOWN',
+                adsCanRequestAds: false,
+                privacyOptionsRequirementStatus: 'UNKNOWN',
+                isConsentFormAvailable: false,
                 keepHistory: true,
               }).catch(() => null);
+              dispatch(setServerUrl(DEFAULT_BACKEND_URL));
+              dispatch(setServerApiKey(''));
             }}
             secondary
           />
@@ -406,11 +506,29 @@ export function SettingsScreen({navigation}: Props) {
       {activePanel === 'appearance' ? renderAppearance() : null}
       {activePanel === 'conversion' ? renderConversion() : null}
       {activePanel === 'storage' ? renderStorage() : null}
-      {activePanel === 'cloud' ? renderCloud() : null}
+      {activePanel === 'cloud' && __DEV__ ? renderCloud() : null}
       {activePanel === 'ads' ? renderAds() : null}
       {activePanel === 'maintenance' ? renderMaintenance() : null}
     </Screen>
   );
+}
+
+function mapConsentInfoToSettings(
+  info: {
+    status: 'UNKNOWN' | 'REQUIRED' | 'NOT_REQUIRED' | 'OBTAINED';
+    canRequestAds: boolean;
+    privacyOptionsRequirementStatus: 'UNKNOWN' | 'REQUIRED' | 'NOT_REQUIRED';
+    isConsentFormAvailable: boolean;
+  },
+  settings: RootState['settings'],
+) {
+  return {
+    ...settings,
+    adsConsentStatus: info.status,
+    adsCanRequestAds: info.canRequestAds,
+    privacyOptionsRequirementStatus: info.privacyOptionsRequirementStatus,
+    isConsentFormAvailable: info.isConsentFormAvailable,
+  };
 }
 
 function SettingsTile({

@@ -9,20 +9,37 @@ import {BrandMark} from '@app/components/BrandMark';
 import {ThemeProvider, useAppTheme} from '@app/theme/ThemeProvider';
 import {useAppBootstrap} from '@app/hooks/useAppBootstrap';
 import {darkColors, lightColors} from '@app/theme/colors';
-import {useAppSelector} from '@app/store/hooks';
-import {initializeAdMob} from '@app/services/admobService';
+import {useAppDispatch, useAppSelector} from '@app/store/hooks';
+import {initializeAdMob, syncAdConsentOnLaunch} from '@app/services/admobService';
+import {setAdsConsentInfo} from '@app/store/slices/settingsSlice';
 
 function AppChrome() {
+  const dispatch = useAppDispatch();
   const {theme, isDark} = useAppTheme();
   const {ready, error, bootThemeMode} = useAppBootstrap();
   const adsEnabled = useAppSelector(state => state.settings.adsEnabled);
+  const adsCanRequestAds = useAppSelector(state => state.settings.adsCanRequestAds);
   const systemScheme = Appearance.getColorScheme();
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const [showSplashOverlay, setShowSplashOverlay] = useState(true);
 
   useEffect(() => {
-    void initializeAdMob(adsEnabled);
-  }, [adsEnabled]);
+    void initializeAdMob(adsEnabled, adsCanRequestAds);
+  }, [adsCanRequestAds, adsEnabled]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    syncAdConsentOnLaunch()
+      .then(info => {
+        dispatch(setAdsConsentInfo(info));
+      })
+      .catch(error => {
+        console.warn('Ad consent sync skipped', error);
+      });
+  }, [dispatch, ready]);
 
   useEffect(() => {
     if (!ready) {
