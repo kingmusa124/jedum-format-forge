@@ -20,7 +20,10 @@ Use this when you are ready to monetize Jedum Format Forge.
 
 - Add a public privacy policy URL.
 - Explain ad usage, analytics, and cloud conversion uploads.
-- Add consent handling for GDPR/EEA and other required regions.
+- Request consent information on every app launch.
+- Show Google’s consent form when required.
+- Only request ads when consent allows it.
+- Provide a visible privacy options / consent-revocation entry point when required.
 - Make sure your Play Store and App Store data safety forms match the real app behavior.
 
 ## 4. app-ads.txt

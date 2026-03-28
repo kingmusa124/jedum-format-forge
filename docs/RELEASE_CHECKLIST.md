@@ -24,6 +24,7 @@ Use this checklist before shipping Jedum Format Forge to Google Play or the App 
 - Set a strong `API_KEY` and keep it out of Git.
 - Add logging, file cleanup, and rate limiting in production.
 - Confirm LibreOffice is installed on the production host if you use Office-to-PDF conversion there.
+- Verify the app points at the live backend URL instead of any local `127.0.0.1` test endpoint.
 
 ## Privacy and consent
 
