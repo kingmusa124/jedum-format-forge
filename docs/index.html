@@ -4,20 +4,363 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jedum Format Forge</title>
-  <meta name="theme-color" content="#f3eadb">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css">
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/docx@9.1.1/dist/index.umd.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <meta name="theme-color" content="#08101f">
+  <meta
+    name="description"
+    content="Jedum Format Forge is a cleaner conversion workspace for mobile-first file tasks, powered by Jedum Global Solutions.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060912;
+      --bg-soft: #0b1020;
+      --panel: #0d1427;
+      --panel-2: #101a31;
+      --border: #1d2a49;
+      --text: #f3f6ff;
+      --muted: #96a7cc;
+      --accent: #4e7cff;
+      --accent-2: #8fb0ff;
+      --max: 1100px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(78, 124, 255, 0.18), transparent 28%),
+        linear-gradient(180deg, #05070e 0%, #070b14 100%);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      width: min(calc(100% - 32px), var(--max));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 26px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #132246, #0b1120);
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+      font-weight: 800;
+      color: #d9e4ff;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-caption {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .top-links a {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(16, 26, 49, 0.95), rgba(8, 12, 23, 0.98));
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 26px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.32);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(78, 124, 255, 0.16);
+      border: 1px solid rgba(78, 124, 255, 0.28);
+      color: #b9cbff;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(38px, 6vw, 66px);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 660px;
+      margin: 0 0 22px;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .cta {
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+    }
+
+    .cta.primary {
+      background: linear-gradient(135deg, var(--accent), #6d93ff);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .cta.secondary {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+    }
+
+    .mini-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+    }
+
+    .chip h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .chip p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .sections {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .section-card {
+      background: rgba(13, 20, 39, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 22px;
+    }
+
+    .section-card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .section-card p,
+    .section-card li {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      .hero,
+      .sections {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(calc(100% - 20px), var(--max));
+        padding-top: 18px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .panel,
+      .section-card {
+        border-radius: 22px;
+        padding: 20px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel" data-presets="env,react" src="./app.jsx"></script>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">JGS</div>
+        <div>
+          <p class="brand-title">Jedum Format Forge</p>
+          <p class="brand-caption">By Jedum Global Solutions</p>
+        </div>
+      </div>
+      <nav class="top-links">
+        <a href="./privacy.html">Privacy Policy</a>
+        <a href="./app-ads.txt">app-ads.txt</a>
+        <a href="mailto:jedumtech@gmail.com">Support</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="panel">
+        <div class="eyebrow">Mobile-first conversion workspace</div>
+        <h1>Clean file conversion for modern Android and iOS workflows.</h1>
+        <p class="lead">
+          Jedum Format Forge blends local-first conversion tools with cloud-assisted document workflows,
+          built for people who need fast exports, clearer results, and a polished mobile experience.
+        </p>
+        <div class="cta-row">
+          <a class="cta primary" href="./privacy.html">Read privacy policy</a>
+          <a class="cta secondary" href="./app-ads.txt">View app-ads.txt</a>
+        </div>
+      </div>
+
+      <aside class="panel mini-card">
+        <div>
+          <div class="eyebrow">Release support</div>
+          <div class="mini-grid">
+            <div class="chip">
+              <h3>Cloud conversions</h3>
+              <p>Document workflows such as Word to PDF and PDF to Word are backed by the live API.</p>
+            </div>
+            <div class="chip">
+              <h3>Privacy ready</h3>
+              <p>The app includes a privacy policy link, consent flow, and privacy options entry point.</p>
+            </div>
+            <div class="chip">
+              <h3>AdMob prep</h3>
+              <p>app-ads.txt and consent support are in place before production ad serving is enabled.</p>
+            </div>
+            <div class="chip">
+              <h3>Support</h3>
+              <p>For questions, partnership, or test feedback, contact Jedum Global Solutions.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="sections">
+      <article class="section-card">
+        <h2>What the app does</h2>
+        <p>
+          Jedum Format Forge handles many conversions locally on-device and uses a secure backend for selected
+          file workflows that need stronger document processing.
+        </p>
+      </article>
+
+      <article class="section-card">
+        <h2>Public policy links</h2>
+        <ul>
+          <li><a href="./privacy.html">Privacy Policy</a></li>
+          <li><a href="./app-ads.txt">app-ads.txt</a></li>
+        </ul>
+      </article>
+
+      <article class="section-card">
+        <h2>Contact</h2>
+        <ul>
+          <li>Email: <a href="mailto:jedumtech@gmail.com">jedumtech@gmail.com</a></li>
+          <li>Country: Nigeria</li>
+          <li>Website: <a href="https://www.jedumformatforge.name.ng">www.jedumformatforge.name.ng</a></li>
+        </ul>
+      </article>
+    </section>
+
+    <p class="footer">
+      Jedum Format Forge · Jedum Global Solutions · Privacy-first mobile conversion tools
+    </p>
+  </main>
 </body>
 </html>
